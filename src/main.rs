@@ -3,6 +3,7 @@ use clap::Subcommand;
 use command::create::Create;
 use command::generate_zsh_completion::GenerateZshCompletion;
 use command::ipsw::Ipsw;
+use command::list::List;
 use command::run::Run;
 use util::exception::Exception;
 
@@ -22,9 +23,18 @@ pub struct Cli {
 #[derive(Subcommand)]
 #[command(arg_required_else_help(true))]
 pub enum Command {
+    #[command(about = "Run vm")]
     Run(Run),
+    #[command(about = "create vm")]
     Create(Create),
+    #[command(name = "ls", about = "List vm status")]
+    List(List),
+    #[command(
+        about = "Get macOS restore image ipsw url",
+        long_about = "Get macOS restore image ipsw url, download ipsw file manually, then use in create command with --ipsw"
+    )]
     Ipsw(Ipsw),
+    #[command(about = "Generate zsh completion")]
     GenerateZshCompletion(GenerateZshCompletion),
 }
 
@@ -35,6 +45,7 @@ async fn main() -> Result<(), Exception> {
     match cli.command {
         Some(Command::Run(command)) => command.execute().await,
         Some(Command::Create(command)) => command.execute().await,
+        Some(Command::List(command)) => command.execute().await,
         Some(Command::Ipsw(command)) => command.execute().await,
         Some(Command::GenerateZshCompletion(command)) => command.execute(),
         None => panic!("not implemented"),

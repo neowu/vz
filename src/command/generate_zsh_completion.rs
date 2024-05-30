@@ -11,7 +11,6 @@ use crate::Cli;
 const CARGO_PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 #[derive(Args)]
-#[command(about = "Generate zsh completion")]
 pub struct GenerateZshCompletion {}
 
 impl GenerateZshCompletion {

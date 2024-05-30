@@ -39,7 +39,6 @@ use crate::vm::delegate::VMDelegate;
 use crate::vm::linux::Linux;
 
 #[derive(Args)]
-#[command(about = "Run vm")]
 pub struct Run {
     #[arg(help = "VM name")]
     name: String,

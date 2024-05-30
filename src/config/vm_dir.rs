@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::vm_config::VMConfig;
 use crate::util::exception::Exception;
+use crate::util::file_lock::FileLock;
 use crate::util::json;
 
 pub struct VMDir {
@@ -30,7 +31,7 @@ impl VMDir {
         }
     }
 
-    fn name(&self) -> String {
+    pub fn name(&self) -> String {
         self.dir.file_name().unwrap().to_string_lossy().to_string()
     }
 
@@ -54,11 +55,20 @@ impl VMDir {
         file.set_len(size).await?;
         Ok(())
     }
+
+    pub fn pid(&self) -> Option<i32> {
+        let lock = FileLock::new(&self.config_path);
+        lock.pid()
+    }
+}
+
+pub fn home_dir() -> PathBuf {
+    let home = env!("HOME");
+    PathBuf::from(format!("{home}/.vm"))
 }
 
 pub fn vm_dir(name: &str) -> VMDir {
-    let home = env!("HOME");
-    VMDir::new(PathBuf::from(format!("{home}/.vm/{name}")))
+    VMDir::new(home_dir().join(name))
 }
 
 pub async fn create_temp_vm_dir() -> Result<VMDir, Exception> {

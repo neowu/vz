@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use clap::command;
 use clap::Args;
 use clap::ValueHint;
 use objc2::exception::catch;
@@ -12,21 +11,20 @@ use objc2_virtualization::VZMACAddress;
 use tokio::fs;
 use tracing::info;
 
+use crate::config::vm_config::Os;
 use crate::config::vm_config::VMConfig;
-use crate::config::vm_config::OS;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VMDir;
 use crate::util::exception::Exception;
 use crate::util::objc;
 
 #[derive(Args)]
-#[command(about = "create vm")]
 pub struct Create {
     #[arg(long, help = "vm name")]
     name: String,
 
     #[arg(long, help = "create a linux or macOS vm", default_value = "linux")]
-    os: OS,
+    os: Os,
 
     #[arg(long, help = "disk size in gb", default_value_t = 50)]
     disk_size: u64,
@@ -43,8 +41,8 @@ impl Create {
         temp_vm_dir.resize(self.disk_size * 1_000_000_000).await?;
 
         match self.os {
-            OS::Linux => create_linux(&temp_vm_dir).await?,
-            OS::MacOS => todo!(),
+            Os::Linux => create_linux(&temp_vm_dir).await?,
+            Os::MacOS => todo!(),
         }
 
         let vm_dir = vm_dir::vm_dir(&self.name);
@@ -65,7 +63,7 @@ impl Create {
         if vm_dir.initialized() {
             return Err(Exception::new(format!("vm already exists, name={name}")));
         }
-        if let OS::MacOS = self.os {
+        if let Os::MacOS = self.os {
             if self.ipsw.is_none() {
                 return Err(Exception::new("ipsw must not be null for macOS vm".to_string()));
             }
@@ -92,7 +90,7 @@ async fn create_linux(dir: &VMDir) -> Result<(), Exception> {
         mac_address = VZMACAddress::randomLocallyAdministeredAddress().string().to_string();
     }
     let config = VMConfig {
-        os: OS::Linux,
+        os: Os::Linux,
         cpu: 1,
         memory: 1024 * 1024 * 1024,
         mac_address,

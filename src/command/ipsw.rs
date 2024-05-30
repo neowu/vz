@@ -2,7 +2,6 @@ use std::sync::mpsc::channel;
 use std::sync::mpsc::RecvError;
 
 use block2::StackBlock;
-use clap::command;
 use clap::Args;
 use objc2_foundation::NSError;
 use objc2_virtualization::VZMacOSRestoreImage;
@@ -10,10 +9,6 @@ use objc2_virtualization::VZMacOSRestoreImage;
 use crate::util::exception::Exception;
 
 #[derive(Args)]
-#[command(
-    about = "Get macOS restore image ipsw url",
-    long_about = "Get macOS restore image ipsw url, download ipsw file manually, then use in create command with --ipsw"
-)]
 pub struct Ipsw;
 
 impl Ipsw {

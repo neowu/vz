@@ -15,7 +15,7 @@ use serde::Serialize;
 use crate::util::exception::Exception;
 
 #[derive(Serialize, Deserialize, Debug, Clone, clap::ValueEnum)]
-pub enum OS {
+pub enum Os {
     #[serde(rename = "linux")]
     #[clap(name = "linux")]
     Linux,
@@ -26,7 +26,7 @@ pub enum OS {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VMConfig {
-    pub os: OS,
+    pub os: Os,
     pub cpu: usize,
     pub memory: u64,
     #[serde(rename = "macAddress")]
