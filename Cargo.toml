@@ -1,7 +1,11 @@
 [package]
 name = "vz-rs"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2021"
+
+[[bin]]
+name = "vz"
+path = "src/main.rs"
 
 [dependencies]
 tracing = "0.1.40"
@@ -20,3 +24,4 @@ dispatch = "0.2.0"
 signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 signal-hook = "0.3.17"
 futures = "0.3.30"
+uuid = { version = "1.8.0", features = ["v4"] }

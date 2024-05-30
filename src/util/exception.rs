@@ -3,6 +3,8 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 
+use tokio::task::JoinError;
+
 pub struct Exception {
     message: String,
     context: Option<String>,
@@ -59,6 +61,12 @@ impl Error for Exception {}
 
 impl From<io::Error> for Exception {
     fn from(err: io::Error) -> Self {
+        Exception::new(err.to_string())
+    }
+}
+
+impl From<JoinError> for Exception {
+    fn from(err: JoinError) -> Self {
         Exception::new(err.to_string())
     }
 }

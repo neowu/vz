@@ -12,9 +12,9 @@ where
     serde_json::from_str(json).map_err(|err| Exception::from_with_context(err, format!("json={json}")))
 }
 
-pub fn to_json<T>(object: &T) -> Result<String, Exception>
+pub fn to_json_pretty<T>(object: &T) -> Result<String, Exception>
 where
     T: Serialize + fmt::Debug,
 {
-    serde_json::to_string(object).map_err(|err| Exception::from_with_context(err, format!("object={object:?}")))
+    serde_json::to_string_pretty(object).map_err(|err| Exception::from_with_context(err, format!("object={object:?}")))
 }
