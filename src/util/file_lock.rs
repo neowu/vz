@@ -7,12 +7,16 @@ pub struct FileLock {
 }
 
 impl FileLock {
+    // fd returned by File.as_raw_fd() doesn't work with fcntl
     pub fn new(path: &Path) -> Self {
         let path = CString::new(path.to_string_lossy().as_bytes()).unwrap();
         let fd = unsafe { libc::open(path.as_ptr(), libc::O_WRONLY) };
         Self { fd }
     }
 
+    // refer to "man fcntl", once process obtain the lock, it must not reopen fd and close if,
+    // close fd will release all locks of current process !!! e.g. lock one file, then read the file / close file
+    // https://apenwarr.ca/log/20101213
     pub fn lock(&self) -> bool {
         let lock = libc::flock {
             l_start: 0,
@@ -25,6 +29,7 @@ impl FileLock {
         result == 0
     }
 
+    // return pid of write lock owner
     pub fn pid(&self) -> Option<i32> {
         let mut lock = libc::flock {
             l_start: 0,
@@ -44,6 +49,7 @@ impl FileLock {
 
 impl Drop for FileLock {
     fn drop(&mut self) {
+        // close fd will release all locks
         unsafe { libc::close(self.fd) };
     }
 }

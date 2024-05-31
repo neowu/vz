@@ -55,8 +55,14 @@ impl Run {
         if !vm_dir.initialized() {
             return Result::Err(Exception::new(format!("vm not initialized, name={name}")));
         }
-
         let config = vm_dir.load_config().await?;
+
+        // must after vm_dir.load_config(), it cloese config file and release all fd
+        // must hold lock reference, otherwise fd will be deallocated, and release all locks
+        let _lock = vm_dir
+            .lock()
+            .ok_or_else(|| Exception::new(format!("vm is already running, name={name}")))?;
+
         let linux = Linux::new(vm_dir, config, self.gui, self.mount.clone());
 
         let vm = linux.create_vm()?;

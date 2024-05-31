@@ -56,6 +56,15 @@ impl VMDir {
         Ok(())
     }
 
+    pub fn lock(&self) -> Option<FileLock> {
+        let lock = FileLock::new(&self.config_path);
+        if lock.lock() {
+            Some(lock)
+        } else {
+            None
+        }
+    }
+
     pub fn pid(&self) -> Option<i32> {
         let lock = FileLock::new(&self.config_path);
         lock.pid()
