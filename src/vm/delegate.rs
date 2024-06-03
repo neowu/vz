@@ -86,6 +86,7 @@ pub fn start_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
                     info!("vm started");
                 } else {
                     error!("vm failed to start, error={}", (*err).localizedDescription());
+                    process::exit(1);
                 }
             }));
         }

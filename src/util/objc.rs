@@ -8,10 +8,6 @@ use objc2_foundation::NSURL;
 
 use super::exception::Exception;
 
-pub fn file_url(path: &Path) -> Retained<NSURL> {
-    unsafe { NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&path.to_string_lossy())) }
-}
-
 impl From<Retained<NSError>> for Exception {
     fn from(err: Retained<NSError>) -> Self {
         Exception::new(err.localizedDescription().to_string())
@@ -25,5 +21,15 @@ impl From<Option<Retained<objc2::exception::Exception>>> for Exception {
             // in objc, throw nil
             None => Exception::new("nil".to_string()),
         }
+    }
+}
+
+pub trait ToNsUrl {
+    fn to_ns_url(&self) -> Retained<NSURL>;
+}
+
+impl ToNsUrl for Path {
+    fn to_ns_url(&self) -> Retained<NSURL> {
+        unsafe { NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&self.to_string_lossy())) }
     }
 }

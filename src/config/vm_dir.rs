@@ -6,24 +6,24 @@ use tokio::fs::OpenOptions;
 use tracing::info;
 use uuid::Uuid;
 
-use super::vm_config::VMConfig;
+use super::vm_config::VmConfig;
 use crate::util::exception::Exception;
 use crate::util::file_lock::FileLock;
 use crate::util::json;
 
-pub struct VMDir {
+pub struct VmDir {
     pub dir: PathBuf,
     pub nvram_path: PathBuf,
     pub disk_path: PathBuf,
     pub config_path: PathBuf,
 }
 
-impl VMDir {
+impl VmDir {
     fn new(dir: PathBuf) -> Self {
         let nvram_path = dir.as_path().join("nvram.bin");
         let disk_path = dir.as_path().join("disk.img");
         let config_path = dir.as_path().join("config.json");
-        VMDir {
+        VmDir {
             dir,
             nvram_path,
             disk_path,
@@ -39,12 +39,12 @@ impl VMDir {
         self.config_path.exists() && self.disk_path.exists() && self.nvram_path.exists()
     }
 
-    pub async fn load_config(&self) -> Result<VMConfig, Exception> {
+    pub async fn load_config(&self) -> Result<VmConfig, Exception> {
         let json = fs::read_to_string(&self.config_path).await?;
         json::from_json(&json)
     }
 
-    pub async fn save_config(&self, config: VMConfig) -> Result<(), Exception> {
+    pub async fn save_config(&self, config: &VmConfig) -> Result<(), Exception> {
         let json = json::to_json_pretty(&config)?;
         fs::write(&self.config_path, json).await?;
         Ok(())
@@ -56,12 +56,12 @@ impl VMDir {
         Ok(())
     }
 
-    pub fn lock(&self) -> Option<FileLock> {
+    pub fn lock(&self) -> Result<FileLock, Exception> {
         let lock = FileLock::new(&self.config_path);
         if lock.lock() {
-            Some(lock)
+            Ok(lock)
         } else {
-            None
+            Err(Exception::new(format!("vm is already running, name={}", self.name())))
         }
     }
 
@@ -76,14 +76,14 @@ pub fn home_dir() -> PathBuf {
     PathBuf::from(format!("{home}/.vm"))
 }
 
-pub fn vm_dir(name: &str) -> VMDir {
-    VMDir::new(home_dir().join(name))
+pub fn vm_dir(name: &str) -> VmDir {
+    VmDir::new(home_dir().join(name))
 }
 
-pub async fn create_temp_vm_dir() -> Result<VMDir, Exception> {
+pub async fn create_temp_vm_dir() -> Result<VmDir, Exception> {
     let home = env!("HOME");
     let temp_dir = PathBuf::from(format!("{home}/.vm/{}", Uuid::new_v4()));
-    info!("create dir, dir={}", temp_dir.to_string_lossy());
+    info!("create vm dir, dir={}", temp_dir.to_string_lossy());
     create_dir_all(&temp_dir).await?;
-    Ok(VMDir::new(temp_dir))
+    Ok(VmDir::new(temp_dir))
 }

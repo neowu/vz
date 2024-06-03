@@ -4,7 +4,7 @@ use clap::Args;
 use tokio::time::sleep;
 use tracing::info;
 
-use crate::config::vm_dir::VMDir;
+use crate::config::vm_dir::VmDir;
 use crate::config::vm_dir::{self};
 use crate::util::exception::Exception;
 
@@ -32,7 +32,7 @@ impl Stop {
     }
 }
 
-async fn wait_until_stopped(dir: VMDir) -> Result<(), Exception> {
+async fn wait_until_stopped(dir: VmDir) -> Result<(), Exception> {
     let mut attempts = 0;
     while attempts < 20 {
         sleep(Duration::from_secs(1)).await;

@@ -32,11 +32,13 @@ use signal_hook::consts::SIGTERM;
 use signal_hook_tokio::Signals;
 use tokio::time::sleep;
 
+use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
 use crate::vm::delegate;
 use crate::vm::delegate::VMDelegate;
 use crate::vm::linux::Linux;
+use crate::vm::mac_os;
 
 #[derive(Args)]
 pub struct Run {
@@ -56,16 +58,20 @@ impl Run {
             return Result::Err(Exception::new(format!("vm not initialized, name={name}")));
         }
         let config = vm_dir.load_config().await?;
+        let automatically_reconfigures_display = matches!(&config.os, Os::MacOS);
 
         // must after vm_dir.load_config(), it cloese config file and release all fd
         // must hold lock reference, otherwise fd will be deallocated, and release all locks
-        let _lock = vm_dir
-            .lock()
-            .ok_or_else(|| Exception::new(format!("vm is already running, name={name}")))?;
+        let _lock = vm_dir.lock()?;
 
-        let linux = Linux::new(vm_dir, config, self.gui, self.mount.clone());
+        let vm = match config.os {
+            Os::Linux => {
+                let linux = Linux::new(vm_dir, config, self.gui, self.mount.clone());
+                linux.create_vm()?
+            }
+            Os::MacOS => mac_os::create_vm(&vm_dir, &config)?,
+        };
 
-        let vm = linux.create_vm()?;
         let marker = MainThreadMarker::new().unwrap();
         let delegate = VMDelegate::new(marker, MainThreadBound::new(vm.clone(), marker));
         let proto: &ProtocolObject<dyn VZVirtualMachineDelegate> = ProtocolObject::from_ref(&*delegate);
@@ -84,13 +90,13 @@ impl Run {
 
         delegate::start_vm(&MainThreadBound::new(vm.clone(), marker));
 
-        unsafe {
-            if self.gui {
-                run_gui(name, vm, delegate);
-            } else {
+        if self.gui {
+            run_gui(name, vm, delegate, automatically_reconfigures_display);
+        } else {
+            unsafe {
                 dispatch_main();
             }
-        };
+        }
 
         handle.close();
         task.await?;
@@ -98,23 +104,25 @@ impl Run {
     }
 }
 
-unsafe fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>) {
+fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>, automatically_reconfigures_display: bool) {
     let marker = MainThreadMarker::new().unwrap();
 
     let app = NSApplication::sharedApplication(marker);
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
 
-    let window = NSWindow::initWithContentRect_styleMask_backing_defer_screen(
-        MainThreadMarker::new().unwrap().alloc(),
-        NSRect {
-            origin: CGPoint::new(0.0, 0.0),
-            size: CGSize::new(1024.0, 768.0),
-        },
-        NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable | NSWindowStyleMask::Closable,
-        NSBackingStoreType::NSBackingStoreBuffered,
-        false,
-        Option::None,
-    );
+    let window = unsafe {
+        NSWindow::initWithContentRect_styleMask_backing_defer_screen(
+            marker.alloc(),
+            NSRect {
+                origin: CGPoint::new(0.0, 0.0),
+                size: CGSize::new(1024.0, 768.0),
+            },
+            NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable | NSWindowStyleMask::Closable,
+            NSBackingStoreType::NSBackingStoreBuffered,
+            false,
+            Option::None,
+        )
+    };
     window.setTitle(&NSString::from_str(name));
     let proto: &ProtocolObject<dyn NSWindowDelegate> = ProtocolObject::from_ref(&*delegate);
     window.setDelegate(Some(proto));
@@ -122,21 +130,22 @@ unsafe fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained
     let menu = NSMenu::new(marker);
     let menu_item = NSMenuItem::new(marker);
     let sub_menu = NSMenu::new(marker);
-    sub_menu.addItemWithTitle_action_keyEquivalent(&NSString::from_str(&format!("Stop {name}...")), Some(sel!(close)), ns_string!("q"));
+    unsafe { sub_menu.addItemWithTitle_action_keyEquivalent(&NSString::from_str(&format!("Stop {name}...")), Some(sel!(close)), ns_string!("q")) };
     menu_item.setSubmenu(Some(&sub_menu));
     menu.addItem(&menu_item);
     app.setMainMenu(Some(&menu));
+    unsafe {
+        let machine_view = VZVirtualMachineView::initWithFrame(marker.alloc(), window.contentLayoutRect());
+        machine_view.setCapturesSystemKeys(true);
+        machine_view.setAutomaticallyReconfiguresDisplay(automatically_reconfigures_display);
+        machine_view.setVirtualMachine(Some(&vm));
+        machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewWidthSizable | NSAutoresizingMaskOptions::NSViewHeightSizable);
 
-    let machine_view = VZVirtualMachineView::initWithFrame(marker.alloc(), window.contentLayoutRect());
-    machine_view.setCapturesSystemKeys(true);
-    machine_view.setAutomaticallyReconfiguresDisplay(false);
-    machine_view.setVirtualMachine(Some(&vm));
-    machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewWidthSizable | NSAutoresizingMaskOptions::NSViewHeightSizable);
-
-    window.contentView().unwrap().addSubview(&machine_view);
+        window.contentView().unwrap().addSubview(&machine_view);
+    }
     window.makeKeyAndOrderFront(Option::None);
 
-    app.run();
+    unsafe { app.run() };
 }
 
 async fn handle_signals(mut signals: Signals, bound: &MainThreadBound<Retained<VZVirtualMachine>>) {

@@ -8,21 +8,21 @@ name = "vz"
 path = "src/main.rs"
 
 [dependencies]
-tracing = "0.1.40"
-tracing-subscriber = "0.3.18"
-clap = { version = "4.4.16", features = ["derive"] }
-clap_complete = "4.4.6"
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0"
-tokio = { version = "1.36.0", features = ["full"] }
-objc2 = { version = "0.5.2", features = ["std", "exception"] }
-objc2-foundation = { version = "0.2.2", features = ["all", "dispatch"] }
-objc2-virtualization = { version = "0.2.2", features = ["all"] }
-objc2-app-kit = { version = "0.2.2", features = ["all"] }
-block2 = "0.5.1"
-dispatch = "0.2.0"
-signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
-signal-hook = "0.3.17"
-futures = "0.3.30"
-uuid = { version = "1.8.0", features = ["v4"] }
-libc = "0.2.155"
+tracing = "0"
+tracing-subscriber = "0"
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+objc2 = { version = "0", features = ["std", "exception"] }
+objc2-foundation = { version = "0", features = ["all", "dispatch"] }
+objc2-virtualization = { version = "0", features = ["all"] }
+objc2-app-kit = { version = "0", features = ["all"] }
+block2 = "0"
+dispatch = "0"
+signal-hook-tokio = { version = "0", features = ["futures-v0_3"] }
+signal-hook = "0"
+futures = "0"
+uuid = { version = "1", features = ["v4"] }
+libc = "0"

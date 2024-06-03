@@ -28,24 +28,24 @@ use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
 use tracing::info;
 
-use crate::config::vm_config::VMConfig;
-use crate::config::vm_dir::VMDir;
+use crate::config::vm_config::VmConfig;
+use crate::config::vm_dir::VmDir;
 use crate::util::exception::Exception;
 
 pub struct Linux {
-    dir: VMDir,
-    config: VMConfig,
+    dir: VmDir,
+    config: VmConfig,
     gui: bool,
     mount: Option<PathBuf>,
 }
 
 impl Linux {
-    pub fn new(dir: VMDir, config: VMConfig, gui: bool, mount: Option<PathBuf>) -> Self {
+    pub fn new(dir: VmDir, config: VmConfig, gui: bool, mount: Option<PathBuf>) -> Self {
         Linux { dir, config, gui, mount }
     }
 
     pub fn create_vm(&self) -> Result<Retained<VZVirtualMachine>, Exception> {
-        info!("create vm config");
+        info!("create linux vm, name={}", self.dir.name());
         let vz_config = self.create_vm_config()?;
         unsafe {
             vz_config.validateWithError()?;
@@ -63,8 +63,8 @@ impl Linux {
             config.setPlatform(VZGenericPlatformConfiguration::new().as_ref());
 
             if self.gui {
-                let pixels = self.config.display()?;
-                config.setGraphicsDevices(&NSArray::from_vec(vec![display(pixels.0, pixels.1)]));
+                let (width, height) = self.config.display()?;
+                config.setGraphicsDevices(&NSArray::from_vec(vec![display(width, height)]));
                 config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZUSBKeyboardConfiguration::new())]));
                 config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(
                     VZUSBScreenCoordinatePointingDeviceConfiguration::new(),
