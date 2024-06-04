@@ -33,28 +33,30 @@ use tracing::error;
 use tracing::info;
 
 use crate::util::exception::Exception;
+use crate::util::objc;
 use crate::util::objc::ToNsUrl;
 
 pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path) -> Result<(), Exception> {
-    unsafe {
-        let installer = VZMacOSInstaller::initWithVirtualMachine_restoreImageURL(VZMacOSInstaller::alloc(), &vm, &ipsw.to_ns_url());
-        let _observer = VZMacOSInstallerObserver::new(installer.progress());
-        let installer = MainThreadBound::new(installer, MainThreadMarker::new().unwrap());
-        run_on_main(move |marker| {
-            let installer = installer.get(marker);
+    let installer = unsafe { VZMacOSInstaller::initWithVirtualMachine_restoreImageURL(VZMacOSInstaller::alloc(), &vm, &ipsw.to_ns_url()) };
+    let _observer = VZMacOSInstallerObserver::new(unsafe { installer.progress() });
+    let installer = MainThreadBound::new(installer, MainThreadMarker::new().unwrap());
 
-            installer.installWithCompletionHandler(&StackBlock::new(move |err: *mut NSError| {
-                if !err.is_null() {
-                    error!("failed to install, error={}", (*err).localizedDescription().to_string());
-                    process::exit(1);
-                } else {
-                    info!("instal macOS finished");
-                    process::exit(0);
-                }
-            }));
+    run_on_main(move |marker| {
+        let installer = installer.get(marker);
+        let block = &StackBlock::new(move |err: *mut NSError| {
+            if !err.is_null() {
+                error!("failed to install, error={}", objc::error_message(err));
+                process::exit(1);
+            } else {
+                info!("instal macOS done");
+                process::exit(0);
+            }
         });
-        dispatch_main();
-    }
+        unsafe {
+            installer.installWithCompletionHandler(block);
+        }
+    });
+    unsafe { dispatch_main() };
     Ok(())
 }
 

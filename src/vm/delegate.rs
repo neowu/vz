@@ -21,6 +21,8 @@ use objc2_virtualization::VZVirtualMachineDelegate;
 use tracing::error;
 use tracing::info;
 
+use crate::util::objc::error_message;
+
 pub struct Ivars {
     vm: MainThreadBound<Retained<VZVirtualMachine>>,
 }
@@ -85,7 +87,7 @@ pub fn start_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
                 if err.is_null() {
                     info!("vm started");
                 } else {
-                    error!("vm failed to start, error={}", (*err).localizedDescription());
+                    error!("vm failed to start, error={}", error_message(err));
                     process::exit(1);
                 }
             }));
@@ -122,7 +124,7 @@ pub fn force_stop_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
                         info!("vm stopped");
                         process::exit(0);
                     } else {
-                        error!("vm failed to stop, error={}", (*err).localizedDescription());
+                        error!("vm failed to stop, error={}", error_message(err));
                         process::exit(1);
                     }
                 }));

@@ -1,8 +1,6 @@
+use std::fs;
 use std::path::PathBuf;
 
-use tokio::fs;
-use tokio::fs::create_dir_all;
-use tokio::fs::OpenOptions;
 use tracing::info;
 use uuid::Uuid;
 
@@ -39,20 +37,20 @@ impl VmDir {
         self.config_path.exists() && self.disk_path.exists() && self.nvram_path.exists()
     }
 
-    pub async fn load_config(&self) -> Result<VmConfig, Exception> {
-        let json = fs::read_to_string(&self.config_path).await?;
+    pub fn load_config(&self) -> Result<VmConfig, Exception> {
+        let json = fs::read_to_string(&self.config_path)?;
         json::from_json(&json)
     }
 
-    pub async fn save_config(&self, config: &VmConfig) -> Result<(), Exception> {
+    pub fn save_config(&self, config: &VmConfig) -> Result<(), Exception> {
         let json = json::to_json_pretty(&config)?;
-        fs::write(&self.config_path, json).await?;
+        fs::write(&self.config_path, json)?;
         Ok(())
     }
 
-    pub async fn resize(&self, size: u64) -> Result<(), Exception> {
-        let file = OpenOptions::new().create(true).append(true).open(&self.disk_path).await?;
-        file.set_len(size).await?;
+    pub fn resize(&self, size: u64) -> Result<(), Exception> {
+        let file = fs::OpenOptions::new().create(true).append(true).open(&self.disk_path)?;
+        file.set_len(size)?;
         Ok(())
     }
 
@@ -80,10 +78,10 @@ pub fn vm_dir(name: &str) -> VmDir {
     VmDir::new(home_dir().join(name))
 }
 
-pub async fn create_temp_vm_dir() -> Result<VmDir, Exception> {
+pub fn create_temp_vm_dir() -> Result<VmDir, Exception> {
     let home = env!("HOME");
     let temp_dir = PathBuf::from(format!("{home}/.vm/{}", Uuid::new_v4()));
     info!("create vm dir, dir={}", temp_dir.to_string_lossy());
-    create_dir_all(&temp_dir).await?;
+    fs::create_dir_all(&temp_dir)?;
     Ok(VmDir::new(temp_dir))
 }

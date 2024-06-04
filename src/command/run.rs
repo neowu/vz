@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use clap::Args;
+use clap::ValueHint;
 use dispatch::ffi::dispatch_main;
 use futures::stream::StreamExt;
 use objc2::rc::Retained;
@@ -37,7 +38,7 @@ use crate::config::vm_dir;
 use crate::util::exception::Exception;
 use crate::vm::delegate;
 use crate::vm::delegate::VMDelegate;
-use crate::vm::linux::Linux;
+use crate::vm::linux;
 use crate::vm::mac_os;
 
 #[derive(Args)]
@@ -46,30 +47,26 @@ pub struct Run {
     name: String,
     #[arg(long, help = "Open UI window", default_value_t = false)]
     gui: bool,
-    #[arg(long, help = "Attach disk image in read only mode, e.g. --mount=\"debian.iso\"", value_hint = clap::ValueHint::FilePath)]
+    #[arg(long, help = "Attach disk image in read only mode, e.g. --mount=\"debian.iso\"", value_hint = ValueHint::FilePath)]
     mount: Option<PathBuf>,
 }
 
 impl Run {
     pub async fn execute(&self) -> Result<(), Exception> {
         let name = &self.name;
-        let vm_dir = vm_dir::vm_dir(name);
-        if !vm_dir.initialized() {
+        let dir = vm_dir::vm_dir(name);
+        if !dir.initialized() {
             return Result::Err(Exception::new(format!("vm not initialized, name={name}")));
         }
-        let config = vm_dir.load_config().await?;
-        let automatically_reconfigures_display = matches!(&config.os, Os::MacOS);
+        let config = dir.load_config()?;
 
         // must after vm_dir.load_config(), it cloese config file and release all fd
         // must hold lock reference, otherwise fd will be deallocated, and release all locks
-        let _lock = vm_dir.lock()?;
+        let _lock = dir.lock()?;
 
         let vm = match config.os {
-            Os::Linux => {
-                let linux = Linux::new(vm_dir, config, self.gui, self.mount.clone());
-                linux.create_vm()?
-            }
-            Os::MacOS => mac_os::create_vm(&vm_dir, &config)?,
+            Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
+            Os::MacOs => mac_os::create_vm(&dir, &config)?,
         };
 
         let marker = MainThreadMarker::new().unwrap();
@@ -91,6 +88,7 @@ impl Run {
         delegate::start_vm(&MainThreadBound::new(vm.clone(), marker));
 
         if self.gui {
+            let automatically_reconfigures_display = matches!(&config.os, Os::MacOs);
             run_gui(name, vm, delegate, automatically_reconfigures_display);
         } else {
             unsafe {

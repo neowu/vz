@@ -2,6 +2,7 @@ use std::backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::io;
+use std::sync::mpsc::RecvError;
 
 use tokio::task::JoinError;
 
@@ -67,6 +68,12 @@ impl From<io::Error> for Exception {
 
 impl From<JoinError> for Exception {
     fn from(err: JoinError) -> Self {
+        Exception::new(err.to_string())
+    }
+}
+
+impl From<RecvError> for Exception {
+    fn from(err: RecvError) -> Self {
         Exception::new(err.to_string())
     }
 }

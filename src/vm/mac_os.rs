@@ -118,11 +118,12 @@ fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception
 }
 
 fn display(width: isize, height: isize) -> Retained<VZGraphicsDeviceConfiguration> {
+    let screen = NSScreen::mainScreen(MainThreadMarker::new().unwrap()).unwrap();
     unsafe {
         let display = VZMacGraphicsDeviceConfiguration::new();
         display.setDisplays(&NSArray::from_vec(vec![VZMacGraphicsDisplayConfiguration::initForScreen_sizeInPoints(
             VZMacGraphicsDisplayConfiguration::alloc(),
-            &NSScreen::mainScreen(MainThreadMarker::new().unwrap()).unwrap(),
+            &screen,
             NSSize::new(width as CGFloat, height as CGFloat),
         )]));
         Id::into_super(display)

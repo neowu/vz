@@ -28,7 +28,7 @@ pub enum Os {
     Linux,
     #[serde(rename = "macOS")]
     #[clap(name = "macOS")]
-    MacOS,
+    MacOs,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

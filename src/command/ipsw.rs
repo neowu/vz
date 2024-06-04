@@ -1,5 +1,4 @@
 use std::sync::mpsc::channel;
-use std::sync::mpsc::RecvError;
 
 use block2::StackBlock;
 use clap::Args;
@@ -12,27 +11,22 @@ use crate::util::exception::Exception;
 pub struct Ipsw;
 
 impl Ipsw {
-    pub async fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<(), Exception> {
         let (tx, rx) = channel();
+        let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, error: *mut NSError| {
+            if !error.is_null() {
+                tx.send(Err(Exception::new(unsafe { (*error).localizedDescription().to_string() })))
+                    .unwrap();
+            } else {
+                let url = unsafe { (*image).URL().absoluteString().unwrap() };
+                tx.send(Ok(url)).unwrap();
+            }
+        });
         unsafe {
-            let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, error: *mut NSError| {
-                if !error.is_null() {
-                    tx.send(Err(Exception::new((*error).localizedDescription().to_string()))).unwrap();
-                } else {
-                    let url = (*image).URL().absoluteString();
-                    tx.send(Ok(url.unwrap().to_string())).unwrap();
-                }
-            });
             VZMacOSRestoreImage::fetchLatestSupportedWithCompletionHandler(&block);
         };
         let url = rx.recv()??;
-        println!("{url}");
+        println!("{}", url);
         Ok(())
-    }
-}
-
-impl From<RecvError> for Exception {
-    fn from(err: RecvError) -> Self {
-        Exception::new(err.to_string())
     }
 }

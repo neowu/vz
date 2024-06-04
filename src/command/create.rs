@@ -1,5 +1,6 @@
 use std::cmp::max;
 use std::collections::HashMap;
+use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
@@ -11,6 +12,7 @@ use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
+use objc2_foundation::MainThreadMarker;
 use objc2_foundation::NSDataBase64EncodingOptions;
 use objc2_foundation::NSError;
 use objc2_virtualization::VZEFIVariableStore;
@@ -20,7 +22,6 @@ use objc2_virtualization::VZMacAuxiliaryStorage;
 use objc2_virtualization::VZMacAuxiliaryStorageInitializationOptions;
 use objc2_virtualization::VZMacMachineIdentifier;
 use objc2_virtualization::VZMacOSRestoreImage;
-use tokio::fs;
 use tracing::info;
 
 use crate::config::vm_config::Os;
@@ -47,20 +48,22 @@ pub struct Create {
 }
 
 impl Create {
-    pub async fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<(), Exception> {
         self.validate()?;
 
-        let temp_dir = vm_dir::create_temp_vm_dir().await?;
-        temp_dir.resize(self.disk_size * 1_000_000_000).await?;
+        let temp_dir = vm_dir::create_temp_vm_dir()?;
+        temp_dir.resize(self.disk_size * 1_000_000_000)?;
+
+        let marker = MainThreadMarker::new().unwrap();
 
         match self.os {
-            Os::Linux => create_linux(&temp_dir).await?,
-            Os::MacOS => create_macos(&temp_dir, self.ipsw.as_ref().unwrap()).await?,
+            Os::Linux => create_linux(&temp_dir)?,
+            Os::MacOs => create_macos(&temp_dir, self.ipsw.as_ref().unwrap(), marker)?,
         }
 
         let dir = vm_dir::vm_dir(&self.name);
         info!("move vm dir, from={}, to={}", temp_dir.dir.to_string_lossy(), dir.dir.to_string_lossy());
-        fs::rename(&temp_dir.dir, &dir.dir).await?;
+        fs::rename(&temp_dir.dir, &dir.dir)?;
         info!("vm created, name={}, config={}", self.name, dir.config_path.to_string_lossy());
 
         Ok(())
@@ -72,7 +75,7 @@ impl Create {
         if dir.initialized() {
             return Err(Exception::new(format!("vm already exists, name={name}")));
         }
-        if let Os::MacOS = self.os {
+        if let Os::MacOs = self.os {
             if self.ipsw.is_none() {
                 return Err(Exception::new("ipsw must not be null for macOS vm".to_string()));
             }
@@ -81,7 +84,7 @@ impl Create {
     }
 }
 
-async fn create_linux(dir: &VmDir) -> Result<(), Exception> {
+fn create_linux(dir: &VmDir) -> Result<(), Exception> {
     info!("create nvram.bin");
     unsafe {
         catch(|| {
@@ -105,12 +108,12 @@ async fn create_linux(dir: &VmDir) -> Result<(), Exception> {
         hardware_model: None,
         machine_identifier: None,
     };
-    dir.save_config(&config).await?;
+    dir.save_config(&config)?;
 
     Ok(())
 }
 
-async fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
+fn create_macos(dir: &VmDir, ipsw: &Path, _marker: MainThreadMarker) -> Result<(), Exception> {
     let image = load_mac_os_restore_image(ipsw)?;
 
     let requirements = unsafe {
@@ -148,7 +151,7 @@ async fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
             .to_string()
     };
     let config = VmConfig {
-        os: Os::MacOS,
+        os: Os::MacOs,
         cpu: max(4, unsafe { requirements.minimumSupportedCPUCount() }),
         memory: max(8 * 1024 * 1024 * 1024, unsafe { requirements.minimumSupportedMemorySize() }),
         mac_address: random_mac_address(),
@@ -158,8 +161,7 @@ async fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
         hardware_model: Some(hardware_model),
         machine_identifier: Some(machine_identifier),
     };
-    dir.save_config(&config).await?;
-
+    dir.save_config(&config)?;
     Ok(())
 }
 

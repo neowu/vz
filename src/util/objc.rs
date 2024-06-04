@@ -33,3 +33,7 @@ impl ToNsUrl for Path {
         unsafe { NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&self.to_string_lossy())) }
     }
 }
+
+pub fn error_message(err: *mut NSError) -> String {
+    unsafe { (*err).localizedDescription().to_string() }
+}

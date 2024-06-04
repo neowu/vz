@@ -31,77 +31,69 @@ use tracing::info;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
 use crate::util::exception::Exception;
+use crate::util::objc::ToNsUrl;
 
-pub struct Linux {
-    dir: VmDir,
-    config: VmConfig,
-    gui: bool,
-    mount: Option<PathBuf>,
+pub fn create_vm(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Result<Retained<VZVirtualMachine>, Exception> {
+    info!("create linux vm, name={}", dir.name());
+    let vz_config = create_vm_config(dir, config, gui, mount)?;
+    unsafe {
+        vz_config.validateWithError()?;
+        Ok(VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config))
+    }
 }
 
-impl Linux {
-    pub fn new(dir: VmDir, config: VmConfig, gui: bool, mount: Option<PathBuf>) -> Self {
-        Linux { dir, config, gui, mount }
-    }
+fn create_vm_config(
+    dir: &VmDir,
+    config: &VmConfig,
+    gui: bool,
+    mount: Option<&PathBuf>,
+) -> Result<Retained<VZVirtualMachineConfiguration>, Exception> {
+    unsafe {
+        let vz_config = VZVirtualMachineConfiguration::new();
+        vz_config.setCPUCount(config.cpu);
+        vz_config.setMemorySize(config.memory);
 
-    pub fn create_vm(&self) -> Result<Retained<VZVirtualMachine>, Exception> {
-        info!("create linux vm, name={}", self.dir.name());
-        let vz_config = self.create_vm_config()?;
-        unsafe {
-            vz_config.validateWithError()?;
-            Ok(VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config))
-        }
-    }
+        vz_config.setBootLoader(Option::Some(&boot_loader(dir)));
+        vz_config.setPlatform(VZGenericPlatformConfiguration::new().as_ref());
 
-    fn create_vm_config(&self) -> Result<Retained<VZVirtualMachineConfiguration>, Exception> {
-        unsafe {
-            let config = VZVirtualMachineConfiguration::new();
-            config.setCPUCount(self.config.cpu);
-            config.setMemorySize(self.config.memory);
-
-            config.setBootLoader(Option::Some(self.boot_loader().as_ref()));
-            config.setPlatform(VZGenericPlatformConfiguration::new().as_ref());
-
-            if self.gui {
-                let (width, height) = self.config.display()?;
-                config.setGraphicsDevices(&NSArray::from_vec(vec![display(width, height)]));
-                config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZUSBKeyboardConfiguration::new())]));
-                config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(
-                    VZUSBScreenCoordinatePointingDeviceConfiguration::new(),
-                )]));
-            }
-
-            config.setNetworkDevices(&NSArray::from_vec(vec![self.config.network()]));
-            config.setStorageDevices(&NSArray::from_vec(self.storage()?));
-
-            config.setMemoryBalloonDevices(&NSArray::from_vec(vec![Id::into_super(
-                VZVirtioTraditionalMemoryBalloonDeviceConfiguration::new(),
+        if gui {
+            let (width, height) = config.display()?;
+            vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(width, height)]));
+            vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZUSBKeyboardConfiguration::new())]));
+            vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(
+                VZUSBScreenCoordinatePointingDeviceConfiguration::new(),
             )]));
-            config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
-
-            Ok(config)
         }
-    }
 
-    fn boot_loader(&self) -> Retained<VZEFIBootLoader> {
-        unsafe {
-            let url = NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&self.dir.nvram_path.to_string_lossy()));
-            let store = VZEFIVariableStore::initWithURL(VZEFIVariableStore::alloc(), &url);
-            let loader = VZEFIBootLoader::new();
-            loader.setVariableStore(Option::Some(&store));
-            loader
-        }
-    }
+        vz_config.setNetworkDevices(&NSArray::from_vec(vec![config.network()]));
+        vz_config.setStorageDevices(&NSArray::from_vec(storage(dir, mount)?));
 
-    fn storage(&self) -> Result<Vec<Retained<VZStorageDeviceConfiguration>>, Exception> {
-        let disk = disk(&self.dir.disk_path)?;
-        let mut storage = vec![disk];
-        if let Option::Some(ref mount_path) = self.mount {
-            let disk = mount(mount_path)?;
-            storage.push(disk)
-        }
-        Ok(storage)
+        vz_config.setMemoryBalloonDevices(&NSArray::from_vec(vec![Id::into_super(
+            VZVirtioTraditionalMemoryBalloonDeviceConfiguration::new(),
+        )]));
+        vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
+
+        Ok(vz_config)
     }
+}
+
+fn boot_loader(dir: &VmDir) -> Retained<VZEFIBootLoader> {
+    unsafe {
+        let store = VZEFIVariableStore::initWithURL(VZEFIVariableStore::alloc(), &dir.nvram_path.to_ns_url());
+        let loader = VZEFIBootLoader::new();
+        loader.setVariableStore(Option::Some(&store));
+        loader
+    }
+}
+
+fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Result<Vec<Retained<VZStorageDeviceConfiguration>>, Exception> {
+    let disk = disk(&dir.disk_path)?;
+    let mut storage = vec![disk];
+    if let Option::Some(mount) = mount {
+        let disk = mount_disk(mount)?;
+        storage.push(disk)
+    }
+    Ok(storage)
 }
 
 fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception> {
@@ -121,11 +113,10 @@ fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception
     }
 }
 
-fn mount(mount: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception> {
+fn mount_disk(mount: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception> {
     unsafe {
         let attachment = catch(|| {
-            let url = NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&mount.to_string_lossy()));
-            VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_error(VZDiskImageStorageDeviceAttachment::alloc(), &url, true)
+            VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_error(VZDiskImageStorageDeviceAttachment::alloc(), &mount.to_ns_url(), true)
         })??;
         let disk = VZUSBMassStorageDeviceConfiguration::initWithAttachment(VZUSBMassStorageDeviceConfiguration::alloc(), &attachment);
         Ok(Id::into_super(disk))
