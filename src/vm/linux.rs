@@ -5,9 +5,11 @@ use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
+use objc2_foundation::ns_string;
 use objc2_foundation::NSArray;
 use objc2_foundation::NSString;
 use objc2_foundation::NSURL;
+use objc2_virtualization::VZDirectorySharingDeviceConfiguration;
 use objc2_virtualization::VZDiskImageCachingMode;
 use objc2_virtualization::VZDiskImageStorageDeviceAttachment;
 use objc2_virtualization::VZDiskImageSynchronizationMode;
@@ -15,12 +17,14 @@ use objc2_virtualization::VZEFIBootLoader;
 use objc2_virtualization::VZEFIVariableStore;
 use objc2_virtualization::VZGenericPlatformConfiguration;
 use objc2_virtualization::VZGraphicsDeviceConfiguration;
+use objc2_virtualization::VZLinuxRosettaDirectoryShare;
 use objc2_virtualization::VZStorageDeviceConfiguration;
 use objc2_virtualization::VZUSBKeyboardConfiguration;
 use objc2_virtualization::VZUSBMassStorageDeviceConfiguration;
 use objc2_virtualization::VZUSBScreenCoordinatePointingDeviceConfiguration;
 use objc2_virtualization::VZVirtioBlockDeviceConfiguration;
 use objc2_virtualization::VZVirtioEntropyDeviceConfiguration;
+use objc2_virtualization::VZVirtioFileSystemDeviceConfiguration;
 use objc2_virtualization::VZVirtioGraphicsDeviceConfiguration;
 use objc2_virtualization::VZVirtioGraphicsScanoutConfiguration;
 use objc2_virtualization::VZVirtioTraditionalMemoryBalloonDeviceConfiguration;
@@ -72,6 +76,17 @@ fn create_vm_config(
             VZVirtioTraditionalMemoryBalloonDeviceConfiguration::new(),
         )]));
         vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
+
+        let mut sharings: Vec<Retained<VZDirectorySharingDeviceConfiguration>> = vec![];
+        if let Some(sharing) = config.sharing_directories() {
+            sharings.push(sharing);
+        }
+        if let Some(true) = config.rosetta {
+            let device = VZVirtioFileSystemDeviceConfiguration::initWithTag(VZVirtioFileSystemDeviceConfiguration::alloc(), ns_string!("rosetta"));
+            device.setShare(Some(&Id::into_super(VZLinuxRosettaDirectoryShare::new())));
+            sharings.push(Id::into_super(device));
+        }
+        vz_config.setDirectorySharingDevices(&NSArray::from_vec(sharings));
 
         Ok(vz_config)
     }

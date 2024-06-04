@@ -20,6 +20,7 @@ use serde::Serialize;
 
 use crate::util::exception::Exception;
 use crate::util::objc::ToNsUrl;
+use crate::util::path::UserPath;
 
 #[derive(Serialize, Deserialize, Debug, Clone, clap::ValueEnum)]
 pub enum Os {
@@ -78,7 +79,7 @@ impl VmConfig {
                 // TODO: expand ~ in path to $HOME
                 values.push(VZSharedDirectory::initWithURL_readOnly(
                     VZSharedDirectory::alloc(),
-                    &PathBuf::from(value).to_ns_url(),
+                    &PathBuf::from(value).to_absolute_path().to_ns_url(),
                     false,
                 ));
             }

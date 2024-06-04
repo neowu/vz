@@ -7,6 +7,7 @@ use tracing::info;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
+use crate::util::path::UserPath;
 use crate::vm::mac_os;
 use crate::vm::mac_os_installer;
 
@@ -34,7 +35,7 @@ impl Install {
         let _lock = dir.lock()?;
 
         let vm = mac_os::create_vm(&dir, &config)?;
-        mac_os_installer::install(vm, &self.ipsw)?;
+        mac_os_installer::install(vm, &self.ipsw.to_absolute_path())?;
 
         Ok(())
     }

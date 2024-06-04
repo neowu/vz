@@ -30,6 +30,7 @@ use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
 use crate::util::exception::Exception;
 use crate::util::objc::ToNsUrl;
+use crate::util::path::UserPath;
 use crate::vm::mac_os;
 
 #[derive(Args)]
@@ -58,7 +59,7 @@ impl Create {
 
         match self.os {
             Os::Linux => create_linux(&temp_dir)?,
-            Os::MacOs => create_macos(&temp_dir, self.ipsw.as_ref().unwrap(), marker)?,
+            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path(), marker)?,
         }
 
         let dir = vm_dir::vm_dir(&self.name);

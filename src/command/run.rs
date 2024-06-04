@@ -1,4 +1,9 @@
+use std::env::current_exe;
+use std::fs::File;
+use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
+use std::process::Stdio;
 use std::time::Duration;
 
 use clap::Args;
@@ -32,10 +37,12 @@ use signal_hook::consts::SIGQUIT;
 use signal_hook::consts::SIGTERM;
 use signal_hook_tokio::Signals;
 use tokio::time::sleep;
+use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
+use crate::util::path::UserPath;
 use crate::vm::delegate;
 use crate::vm::delegate::VMDelegate;
 use crate::vm::linux;
@@ -43,16 +50,29 @@ use crate::vm::mac_os;
 
 #[derive(Args)]
 pub struct Run {
-    #[arg(help = "VM name")]
+    #[arg(help = "vm name")]
     name: String,
-    #[arg(long, help = "Open UI window", default_value_t = false)]
+    #[arg(long, help = "open UI window", default_value_t = false)]
     gui: bool,
-    #[arg(long, help = "Attach disk image in read only mode, e.g. --mount=\"debian.iso\"", value_hint = ValueHint::FilePath)]
+    #[arg(short, help = "run vm in background", default_value_t = false)]
+    detached: bool,
+    #[arg(long, help = "attach disk image in read only mode, e.g. --mount=\"debian.iso\"", value_hint = ValueHint::FilePath)]
     mount: Option<PathBuf>,
 }
 
 impl Run {
     pub async fn execute(&self) -> Result<(), Exception> {
+        if self.detached {
+            if self.gui || self.mount.is_some() {
+                return Err(Exception::new("-d must not be used with --gui and --mount".to_string()));
+            }
+            let log_file = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path().metadata();
+            if let Ok(log_file) = log_file {
+                if !log_file.is_file() || log_file.permissions().readonly() {
+                    return Err(Exception::new("log file is not writable".to_string()));
+                }
+            }
+        }
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
@@ -63,6 +83,11 @@ impl Run {
         // must after vm_dir.load_config(), it cloese config file and release all fd
         // must hold lock reference, otherwise fd will be deallocated, and release all locks
         let _lock = dir.lock()?;
+
+        if self.detached {
+            run_in_background(name, &PathBuf::from("~/Library/Logs/vz1.log").to_absolute_path());
+            return Ok(());
+        }
 
         let vm = match config.os {
             Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
@@ -100,6 +125,15 @@ impl Run {
         task.await?;
         Ok(())
     }
+}
+
+fn run_in_background(name: &str, log_path: &Path) {
+    let mut command = Command::new(current_exe().unwrap());
+    command.args(["run", name]);
+    command.stdout(Stdio::from(File::create(log_path).unwrap()));
+    command.stderr(Stdio::from(File::create(log_path).unwrap()));
+    command.spawn().unwrap();
+    info!("vm launched in background, check log in {}", &log_path.to_string_lossy());
 }
 
 fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>, automatically_reconfigures_display: bool) {
