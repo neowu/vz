@@ -5,20 +5,17 @@ use super::exception::Exception;
 
 impl From<Retained<NSError>> for Exception {
     fn from(err: Retained<NSError>) -> Self {
-        Exception::new(err.localizedDescription().to_string())
+        Exception::ObjcError(err.localizedDescription().to_string())
     }
 }
 
 impl From<Option<Retained<objc2::exception::Exception>>> for Exception {
     fn from(err: Option<Retained<objc2::exception::Exception>>) -> Self {
-        match err {
-            Some(err) => Exception::new(err.to_string()),
+        let message = match err {
+            Some(err) => err.to_string(),
             // in objc, throw nil
-            None => Exception::new("nil".to_string()),
-        }
+            None => "nil".to_string(),
+        };
+        Exception::ObjcError(message)
     }
-}
-
-pub fn error_message(err: *mut NSError) -> String {
-    unsafe { (*err).localizedDescription().to_string() }
 }

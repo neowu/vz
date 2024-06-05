@@ -33,7 +33,6 @@ use tracing::error;
 use tracing::info;
 
 use crate::util::exception::Exception;
-use crate::util::objc;
 use crate::util::path::PathExtension;
 
 pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path) -> Result<(), Exception> {
@@ -45,7 +44,7 @@ pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path) -> Result<(), Except
         let installer = installer.get(marker);
         let block = &StackBlock::new(move |err: *mut NSError| {
             if !err.is_null() {
-                error!("failed to install, error={}", objc::error_message(err));
+                error!("failed to install, error={}", unsafe { (*err).localizedDescription() });
                 process::exit(1);
             } else {
                 info!("instal macOS done");

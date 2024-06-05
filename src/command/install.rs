@@ -25,11 +25,11 @@ impl Install {
         info!("instal macOS");
         let dir = vm_dir::vm_dir(&self.name);
         if !dir.initialized() {
-            return Err(Exception::new(format!("vm not initialized, name={}", self.name)));
+            return Err(Exception::ValidationError(format!("vm not initialized, name={}", self.name)));
         }
         let config = dir.load_config()?;
         if !matches!(config.os, Os::MacOs) {
-            return Err(Exception::new("install requires macOS guest".to_string()));
+            return Err(Exception::ValidationError("install requires macOS guest".to_string()));
         }
 
         let _lock = dir.lock()?;

@@ -21,8 +21,6 @@ use objc2_virtualization::VZVirtualMachineDelegate;
 use tracing::error;
 use tracing::info;
 
-use crate::util::objc::error_message;
-
 pub struct Ivars {
     vm: MainThreadBound<Retained<VZVirtualMachine>>,
 }
@@ -50,14 +48,14 @@ declare_class!(
         }
 
         #[method(virtualMachine:didStopWithError:)]
-        fn virtual_machine_did_stop_with_error(&self, _: &VZVirtualMachine, error: &NSError) {
-            error!("guest has stopped the vm due to error, error={error}");
+        fn virtual_machine_did_stop_with_error(&self, _: &VZVirtualMachine, err: &NSError) {
+            error!("guest has stopped the vm due to error, error={}", err.localizedDescription());
             process::exit(1);
         }
 
         #[method(virtualMachine:networkDevice:attachmentWasDisconnectedWithError:)]
-        fn virtual_machine_network_device_attachment_was_disconnected_with_error(&self, _: &VZVirtualMachine, network_device: &VZNetworkDevice, error: &NSError) {
-            error!("vm network disconnected, device={network_device:?}, error={error}");
+        fn virtual_machine_network_device_attachment_was_disconnected_with_error(&self, _: &VZVirtualMachine, network_device: &VZNetworkDevice, err: &NSError) {
+            error!("vm network disconnected, device={network_device:?}, error={}", err.localizedDescription());
             process::exit(1);
         }
     }
@@ -82,15 +80,16 @@ pub fn start_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
     run_on_main(|marker| {
         info!("start vm");
         let vm = bound.get(marker);
+        let block = &StackBlock::new(|err: *mut NSError| {
+            if err.is_null() {
+                info!("vm started");
+            } else {
+                error!("vm failed to start, error={}", unsafe { (*err).localizedDescription() });
+                process::exit(1);
+            }
+        });
         unsafe {
-            vm.startWithCompletionHandler(&StackBlock::new(|err: *mut NSError| {
-                if err.is_null() {
-                    info!("vm started");
-                } else {
-                    error!("vm failed to start, error={}", error_message(err));
-                    process::exit(1);
-                }
-            }));
+            vm.startWithCompletionHandler(block);
         }
     });
 }
@@ -117,20 +116,21 @@ pub fn force_stop_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
     run_on_main(|marker| {
         info!("force to stop vm");
         let vm = bound.get(marker);
-        unsafe {
-            if vm.canStop() {
-                vm.stopWithCompletionHandler(&StackBlock::new(|err: *mut NSError| {
-                    if err.is_null() {
-                        info!("vm stopped");
-                        process::exit(0);
-                    } else {
-                        error!("vm failed to stop, error={}", error_message(err));
-                        process::exit(1);
-                    }
-                }));
-            } else {
-                process::exit(1);
+        if unsafe { vm.canStop() } {
+            let block = &StackBlock::new(|err: *mut NSError| {
+                if err.is_null() {
+                    info!("vm stopped");
+                    process::exit(0);
+                } else {
+                    error!("vm failed to stop, error={}", unsafe { (*err).localizedDescription() });
+                    process::exit(1);
+                }
+            });
+            unsafe {
+                vm.stopWithCompletionHandler(block);
             }
+        } else {
+            process::exit(1);
         }
     });
 }

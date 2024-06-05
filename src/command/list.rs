@@ -12,9 +12,9 @@ pub struct List;
 
 impl List {
     pub fn execute(&self) -> Result<(), Exception> {
-        let home_dir = &vm_dir::home_dir();
+        let home_dir = vm_dir::home_dir();
         if !home_dir.exists() {
-            return Err(Exception::new(format!("{} does not exist", home_dir.to_string_lossy())));
+            return Err(Exception::ValidationError(format!("{} does not exist", home_dir.to_string_lossy())));
         }
         println!("{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}", "name", "os", "cpu", "memory", "disk", "status");
         for entry in fs::read_dir(home_dir)? {

@@ -1,7 +1,9 @@
+use std::process;
 use std::thread::sleep;
 use std::time::Duration;
 
 use clap::Args;
+use tracing::error;
 use tracing::info;
 
 use crate::config::vm_dir::VmDir;
@@ -19,28 +21,36 @@ impl Stop {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Err(Exception::new(format!("vm not initialized, name={name}")));
+            return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
         }
 
-        let pid = dir.pid().ok_or_else(|| Exception::new(format!("vm not running, name={name}")))?;
+        let pid = dir
+            .pid()
+            .ok_or_else(|| Exception::ValidationError(format!("vm not running, name={name}")))?;
         info!("stop vm, name={name}, pid={pid}");
         unsafe {
             libc::kill(pid, libc::SIGINT);
         }
 
-        wait_until_stopped(dir)
+        let success = wait_until_stopped(dir);
+        if success {
+            info!("vm stopped");
+            process::exit(0);
+        } else {
+            error!("failed to stop vm");
+            process::exit(1);
+        }
     }
 }
 
-fn wait_until_stopped(dir: VmDir) -> Result<(), Exception> {
+fn wait_until_stopped(dir: VmDir) -> bool {
     let mut attempts = 0;
     while attempts < 20 {
         sleep(Duration::from_secs(1));
         if dir.pid().is_none() {
-            info!("vm stopped");
-            return Ok(());
+            return true;
         }
         attempts += 1;
     }
-    Err(Exception::new("failed to stop vm".to_string()))
+    false
 }

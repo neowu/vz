@@ -96,6 +96,6 @@ impl VmConfig {
 
 impl From<ParseIntError> for Exception {
     fn from(err: ParseIntError) -> Self {
-        Exception::new(err.to_string())
+        Exception::ValidationError(err.to_string())
     }
 }

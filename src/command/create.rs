@@ -70,11 +70,11 @@ impl Create {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if dir.initialized() {
-            return Err(Exception::new(format!("vm already exists, name={name}")));
+            return Err(Exception::ValidationError(format!("vm already exists, name={name}")));
         }
         if let Os::MacOs = self.os {
             if self.ipsw.is_none() {
-                return Err(Exception::new("ipsw must not be null for macOS vm".to_string()));
+                return Err(Exception::ValidationError("ipsw must not be null for macOS vm".to_string()));
             }
         };
         Ok(())
@@ -116,7 +116,7 @@ fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
     let requirements = unsafe {
         image
             .mostFeaturefulSupportedConfiguration()
-            .ok_or_else(|| Exception::new("restore image is not supported by current host".to_string()))
+            .ok_or_else(|| Exception::ValidationError("restore image is not supported by current host".to_string()))
     }?;
 
     info!("create nvram.bin");
@@ -169,9 +169,9 @@ fn random_mac_address() -> String {
 fn load_mac_os_restore_image(ipsw: &Path) -> Result<Retained<VZMacOSRestoreImage>, Exception> {
     let (tx, rx) = channel();
     unsafe {
-        let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, error: *mut NSError| {
-            if !error.is_null() {
-                tx.send(Err(Exception::new((*error).localizedDescription().to_string()))).unwrap();
+        let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, err: *mut NSError| {
+            if !err.is_null() {
+                tx.send(Err(Exception::from_ns_error(err))).unwrap();
             } else {
                 let image = Id::from_raw(image).unwrap();
                 tx.send(Ok(image)).unwrap();

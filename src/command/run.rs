@@ -62,32 +62,32 @@ pub struct Run {
 
 impl Run {
     pub async fn execute(&self) -> Result<(), Exception> {
-        if self.detached {
-            if self.gui || self.mount.is_some() {
-                return Err(Exception::new("-d must not be used with --gui and --mount".to_string()));
-            }
-            let log_file = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path().metadata();
-            if let Ok(log_file) = log_file {
-                if !log_file.is_file() || log_file.permissions().readonly() {
-                    return Err(Exception::new("log file is not writable".to_string()));
-                }
-            }
-        }
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Err(Exception::new(format!("vm not initialized, name={name}")));
+            return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
         }
+        if self.detached {
+            if self.gui || self.mount.is_some() {
+                return Err(Exception::ValidationError("-d must not be used with --gui and --mount".to_string()));
+            }
+            let log_path = &PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
+            if let Ok(metadata) = log_path.metadata() {
+                if !metadata.is_file() || metadata.permissions().readonly() {
+                    return Err(Exception::ValidationError(format!(
+                        "log file is not writable, path={}",
+                        log_path.to_string_lossy()
+                    )));
+                }
+            }
+            return run_in_background(name, log_path);
+        }
+
         let config = dir.load_config()?;
 
         // must after vm_dir.load_config(), it cloese config file and release all fd
         // must hold lock reference, otherwise fd will be deallocated, and release all locks
         let _lock = dir.lock()?;
-
-        if self.detached {
-            run_in_background(name, &PathBuf::from("~/Library/Logs/vz.log").to_absolute_path());
-            return Ok(());
-        }
 
         let vm = match config.os {
             Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
@@ -124,13 +124,14 @@ impl Run {
     }
 }
 
-fn run_in_background(name: &str, log_path: &Path) {
-    let mut command = Command::new(current_exe().unwrap());
+fn run_in_background(name: &str, log_path: &Path) -> Result<(), Exception> {
+    let mut command = Command::new(current_exe()?);
     command.args(["run", name]);
-    command.stdout(Stdio::from(File::create(log_path).unwrap()));
-    command.stderr(Stdio::from(File::create(log_path).unwrap()));
-    command.spawn().unwrap();
-    info!("vm launched in background, check log in {}", &log_path.to_string_lossy());
+    command.stdout(Stdio::from(File::create(log_path)?));
+    command.stderr(Stdio::from(File::create(log_path)?));
+    command.spawn()?;
+    info!("vm launched in background, check log in {}", log_path.to_string_lossy());
+    Ok(())
 }
 
 fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>, automatically_reconfigures_display: bool) {

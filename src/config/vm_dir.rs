@@ -60,7 +60,7 @@ impl VmDir {
         if lock.lock() {
             Ok(lock)
         } else {
-            Err(Exception::new(format!("vm is already running, name={}", self.name())))
+            Err(Exception::ValidationError(format!("vm is already running, name={}", self.name())))
         }
     }
 

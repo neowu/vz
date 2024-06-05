@@ -6,7 +6,6 @@ use objc2_foundation::NSError;
 use objc2_virtualization::VZMacOSRestoreImage;
 
 use crate::util::exception::Exception;
-use crate::util::objc::error_message;
 
 #[derive(Args)]
 pub struct Ipsw;
@@ -16,7 +15,7 @@ impl Ipsw {
         let (tx, rx) = channel();
         let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, err: *mut NSError| {
             if !err.is_null() {
-                tx.send(Err(Exception::new(error_message(err)))).unwrap();
+                tx.send(Err(Exception::from_ns_error(err))).unwrap();
             } else {
                 let url = unsafe { (*image).URL().absoluteString().unwrap() };
                 tx.send(Ok(url)).unwrap();
