@@ -19,8 +19,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::util::exception::Exception;
-use crate::util::objc::ToNsUrl;
-use crate::util::path::UserPath;
+use crate::util::path::PathExtension;
 
 #[derive(Serialize, Deserialize, Debug, Clone, clap::ValueEnum)]
 pub enum Os {
@@ -61,10 +60,8 @@ impl VmConfig {
     }
 
     pub fn display(&self) -> Result<(isize, isize), Exception> {
-        let components = self.display.split_once('x').unwrap();
-        let width = components.0.parse()?;
-        let height = components.1.parse()?;
-        Ok((width, height))
+        let (width, height) = self.display.split_once('x').unwrap();
+        Ok((width.parse()?, height.parse()?))
     }
 
     pub fn sharing_directories(&self) -> Option<Retained<VZDirectorySharingDeviceConfiguration>> {
@@ -76,7 +73,6 @@ impl VmConfig {
         unsafe {
             for (key, value) in self.sharing.iter() {
                 keys.push(NSString::from_str(key));
-                // TODO: expand ~ in path to $HOME
                 values.push(VZSharedDirectory::initWithURL_readOnly(
                     VZSharedDirectory::alloc(),
                     &PathBuf::from(value).to_absolute_path().to_ns_url(),

@@ -12,7 +12,6 @@ use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
-use objc2_foundation::MainThreadMarker;
 use objc2_foundation::NSDataBase64EncodingOptions;
 use objc2_foundation::NSError;
 use objc2_virtualization::VZEFIVariableStore;
@@ -29,8 +28,7 @@ use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
 use crate::util::exception::Exception;
-use crate::util::objc::ToNsUrl;
-use crate::util::path::UserPath;
+use crate::util::path::PathExtension;
 use crate::vm::mac_os;
 
 #[derive(Args)]
@@ -55,11 +53,9 @@ impl Create {
         let temp_dir = vm_dir::create_temp_vm_dir()?;
         temp_dir.resize(self.disk_size * 1_000_000_000)?;
 
-        let marker = MainThreadMarker::new().unwrap();
-
         match self.os {
             Os::Linux => create_linux(&temp_dir)?,
-            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path(), marker)?,
+            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path())?,
         }
 
         let dir = vm_dir::vm_dir(&self.name);
@@ -114,7 +110,7 @@ fn create_linux(dir: &VmDir) -> Result<(), Exception> {
     Ok(())
 }
 
-fn create_macos(dir: &VmDir, ipsw: &Path, _marker: MainThreadMarker) -> Result<(), Exception> {
+fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
     let image = load_mac_os_restore_image(ipsw)?;
 
     let requirements = unsafe {

@@ -1,10 +1,18 @@
+use std::path::Path;
 use std::path::PathBuf;
 
-pub trait UserPath {
+use objc2::rc::Retained;
+use objc2::ClassType;
+use objc2_foundation::NSString;
+use objc2_foundation::NSURL;
+
+pub trait PathExtension {
     fn to_absolute_path(&self) -> PathBuf;
+
+    fn to_ns_url(&self) -> Retained<NSURL>;
 }
 
-impl UserPath for PathBuf {
+impl PathExtension for Path {
     fn to_absolute_path(&self) -> PathBuf {
         if self.starts_with("~") {
             return PathBuf::from(format!(
@@ -13,7 +21,12 @@ impl UserPath for PathBuf {
                 self.strip_prefix("~").map_or("".to_string(), |path| path.to_string_lossy().to_string())
             ));
         }
-        self.clone()
+        PathBuf::from(self)
+    }
+
+    fn to_ns_url(&self) -> Retained<NSURL> {
+        let path = NSString::from_str(&self.to_string_lossy());
+        unsafe { NSURL::initFileURLWithPath(NSURL::alloc(), &path) }
     }
 }
 

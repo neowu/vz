@@ -7,7 +7,7 @@ use tracing::info;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
-use crate::util::path::UserPath;
+use crate::util::path::PathExtension;
 use crate::vm::mac_os;
 use crate::vm::mac_os_installer;
 

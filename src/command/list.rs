@@ -3,9 +3,9 @@ use std::os::unix::fs::MetadataExt;
 
 use clap::Args;
 
-use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
+use crate::util::json;
 
 #[derive(Args)]
 pub struct List;
@@ -25,7 +25,7 @@ impl List {
                     let name = dir.name();
 
                     let config = dir.load_config()?;
-                    let os = to_string(config.os);
+                    let os = json::to_json_value(&config.os)?;
                     let cpu = config.cpu;
                     let memory = format!("{:.2}G", config.memory as f32 / (1024.0 * 1024.0 * 1024.0));
                     let metadata = dir.disk_path.metadata()?;
@@ -41,12 +41,5 @@ impl List {
         }
 
         Ok(())
-    }
-}
-
-fn to_string(os: Os) -> &'static str {
-    match os {
-        Os::Linux => "linux",
-        Os::MacOs => "macOS",
     }
 }

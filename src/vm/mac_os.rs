@@ -37,7 +37,7 @@ use tracing::info;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
 use crate::util::exception::Exception;
-use crate::util::objc::ToNsUrl;
+use crate::util::path::PathExtension;
 
 pub fn create_vm(dir: &VmDir, config: &VmConfig) -> Result<Retained<VZVirtualMachine>, Exception> {
     info!("create macOS vm, name={}", dir.name());

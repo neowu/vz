@@ -34,7 +34,7 @@ use tracing::info;
 
 use crate::util::exception::Exception;
 use crate::util::objc;
-use crate::util::objc::ToNsUrl;
+use crate::util::path::PathExtension;
 
 pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path) -> Result<(), Exception> {
     let installer = unsafe { VZMacOSInstaller::initWithVirtualMachine_restoreImageURL(VZMacOSInstaller::alloc(), &vm, &ipsw.to_ns_url()) };

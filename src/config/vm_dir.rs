@@ -8,6 +8,7 @@ use super::vm_config::VmConfig;
 use crate::util::exception::Exception;
 use crate::util::file_lock::FileLock;
 use crate::util::json;
+use crate::util::path::PathExtension;
 
 pub struct VmDir {
     pub dir: PathBuf,
@@ -70,8 +71,7 @@ impl VmDir {
 }
 
 pub fn home_dir() -> PathBuf {
-    let home = env!("HOME");
-    PathBuf::from(format!("{home}/.vm"))
+    PathBuf::from("~/.vm").to_absolute_path()
 }
 
 pub fn vm_dir(name: &str) -> VmDir {
@@ -79,8 +79,7 @@ pub fn vm_dir(name: &str) -> VmDir {
 }
 
 pub fn create_temp_vm_dir() -> Result<VmDir, Exception> {
-    let home = env!("HOME");
-    let temp_dir = PathBuf::from(format!("{home}/.vm/{}", Uuid::new_v4()));
+    let temp_dir = PathBuf::from(format!("~/.vm/{}", Uuid::new_v4())).to_absolute_path();
     info!("create vm dir, dir={}", temp_dir.to_string_lossy());
     fs::create_dir_all(&temp_dir)?;
     Ok(VmDir::new(temp_dir))

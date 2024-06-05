@@ -42,7 +42,7 @@ use tracing::info;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
-use crate::util::path::UserPath;
+use crate::util::path::PathExtension;
 use crate::vm::delegate;
 use crate::vm::delegate::VMDelegate;
 use crate::vm::linux;
@@ -76,7 +76,7 @@ impl Run {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Result::Err(Exception::new(format!("vm not initialized, name={name}")));
+            return Err(Exception::new(format!("vm not initialized, name={name}")));
         }
         let config = dir.load_config()?;
 
@@ -85,7 +85,7 @@ impl Run {
         let _lock = dir.lock()?;
 
         if self.detached {
-            run_in_background(name, &PathBuf::from("~/Library/Logs/vz1.log").to_absolute_path());
+            run_in_background(name, &PathBuf::from("~/Library/Logs/vz.log").to_absolute_path());
             return Ok(());
         }
 
@@ -105,10 +105,7 @@ impl Run {
         let handle = signals.handle();
 
         let bound = MainThreadBound::new(vm.clone(), marker);
-        let task = tokio::spawn(async move {
-            let bound = bound;
-            handle_signals(signals, &bound).await
-        });
+        let task = tokio::spawn(async move { handle_signals(signals, &bound).await });
 
         delegate::start_vm(&MainThreadBound::new(vm.clone(), marker));
 

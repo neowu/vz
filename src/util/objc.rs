@@ -1,10 +1,5 @@
-use std::path::Path;
-
 use objc2::rc::Retained;
-use objc2::ClassType;
 use objc2_foundation::NSError;
-use objc2_foundation::NSString;
-use objc2_foundation::NSURL;
 
 use super::exception::Exception;
 
@@ -21,16 +16,6 @@ impl From<Option<Retained<objc2::exception::Exception>>> for Exception {
             // in objc, throw nil
             None => Exception::new("nil".to_string()),
         }
-    }
-}
-
-pub trait ToNsUrl {
-    fn to_ns_url(&self) -> Retained<NSURL>;
-}
-
-impl ToNsUrl for Path {
-    fn to_ns_url(&self) -> Retained<NSURL> {
-        unsafe { NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&self.to_string_lossy())) }
     }
 }
 
