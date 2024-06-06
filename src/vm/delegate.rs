@@ -1,6 +1,9 @@
 use std::process;
+use std::sync::Arc;
+use std::time::Duration;
 
 use block2::StackBlock;
+use dispatch::Queue;
 use objc2::declare_class;
 use objc2::msg_send_id;
 use objc2::mutability;
@@ -22,7 +25,7 @@ use tracing::error;
 use tracing::info;
 
 pub struct Ivars {
-    vm: MainThreadBound<Retained<VZVirtualMachine>>,
+    vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>,
 }
 
 declare_class!(
@@ -63,20 +66,20 @@ declare_class!(
     unsafe impl NSWindowDelegate for VMDelegate {
         #[method(windowWillClose:)]
         fn window_will_close(&self, _: &NSNotification) {
-             stop_vm(&self.ivars().vm);
+             stop_vm(Arc::clone(&self.ivars().vm));
         }
     }
 );
 
 impl VMDelegate {
-    pub fn new(marker: MainThreadMarker, vm: MainThreadBound<Retained<VZVirtualMachine>>) -> Retained<Self> {
+    pub fn new(marker: MainThreadMarker, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Retained<Self> {
         let this = marker.alloc();
         let this = this.set_ivars(Ivars { vm });
         unsafe { msg_send_id![super(this), init] }
     }
 }
 
-pub fn start_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
+pub fn start_vm(bound: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
         info!("start vm");
         let vm = bound.get(marker);
@@ -94,26 +97,33 @@ pub fn start_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
     });
 }
 
-pub fn stop_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
+pub fn stop_vm(bound: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
         info!("stop vm");
         let vm = bound.get(marker);
-        unsafe {
-            if vm.canRequestStop() {
-                info!("request vm to stop");
-                if let Err(err) = vm.requestStopWithError() {
-                    error!("failed to request vm to stop, error={}", err.localizedDescription());
-                    process::exit(1);
-                }
-            } else {
-                force_stop_vm(bound);
-            }
+        if request_stop_vm(vm) {
+            Queue::main().exec_after(Duration::from_secs(15), || force_stop_vm(bound));
+        } else {
+            force_stop_vm(bound);
         }
     });
-    // dispatch::Queue::main().exec_after(Duration::from_secs(15), || force_stop_vm_2(x));
 }
 
-pub fn force_stop_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
+fn request_stop_vm(vm: &Retained<VZVirtualMachine>) -> bool {
+    unsafe {
+        if vm.canRequestStop() {
+            info!("request vm to stop");
+            if let Err(err) = vm.requestStopWithError() {
+                error!("failed to request vm to stop, error={}", err.localizedDescription());
+                process::exit(1);
+            }
+            return true;
+        }
+        false
+    }
+}
+
+fn force_stop_vm(bound: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
         info!("force to stop vm");
         let vm = bound.get(marker);

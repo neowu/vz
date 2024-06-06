@@ -4,7 +4,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
-use std::time::Duration;
+use std::sync::Arc;
 
 use clap::Args;
 use clap::ValueHint;
@@ -36,7 +36,6 @@ use signal_hook::consts::SIGINT;
 use signal_hook::consts::SIGQUIT;
 use signal_hook::consts::SIGTERM;
 use signal_hook_tokio::Signals;
-use tokio::time::sleep;
 use tracing::info;
 
 use crate::config::vm_config::Os;
@@ -102,19 +101,18 @@ impl Run {
         };
 
         let marker = MainThreadMarker::new().unwrap();
-        let delegate = VMDelegate::new(marker, MainThreadBound::new(vm.clone(), marker));
+        let bound = Arc::new(MainThreadBound::new(vm.clone(), marker));
+        let delegate = VMDelegate::new(marker, Arc::clone(&bound));
         let proto: &ProtocolObject<dyn VZVirtualMachineDelegate> = ProtocolObject::from_ref(&*delegate);
         unsafe {
             vm.setDelegate(Some(proto));
         }
 
-        let signals = Signals::new([SIGTERM, SIGINT])?;
+        let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
         let handle = signals.handle();
+        let task = tokio::spawn(handle_signals(signals, Arc::clone(&bound)));
 
-        let bound = MainThreadBound::new(vm.clone(), marker);
-        let task = tokio::spawn(async move { handle_signals(signals, &bound).await });
-
-        delegate::start_vm(&MainThreadBound::new(vm.clone(), marker));
+        delegate::start_vm(Arc::clone(&bound));
 
         if self.gui {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
@@ -183,13 +181,11 @@ fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDele
     unsafe { app.run() };
 }
 
-async fn handle_signals(mut signals: Signals, bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
-    while let Some(signal) = signals.next().await {
+async fn handle_signals(mut signals: Signals, bound: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+    if let Some(signal) = signals.next().await {
         match signal {
             SIGTERM | SIGINT | SIGQUIT => {
                 delegate::stop_vm(bound);
-                sleep(Duration::from_secs(15)).await;
-                delegate::force_stop_vm(bound);
             }
             _ => unreachable!(),
         }
