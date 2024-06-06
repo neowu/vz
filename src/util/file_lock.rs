@@ -2,6 +2,8 @@ use std::ffi::CString;
 use std::os::fd::RawFd;
 use std::path::Path;
 
+use libc::pid_t;
+
 pub struct FileLock {
     fd: RawFd,
 }
@@ -30,7 +32,7 @@ impl FileLock {
     }
 
     // return pid of write lock owner
-    pub fn pid(&self) -> Option<i32> {
+    pub fn pid(&self) -> Option<pid_t> {
         let mut lock = libc::flock {
             l_start: 0,
             l_len: 0,

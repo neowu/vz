@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use libc::pid_t;
 use tracing::info;
 use uuid::Uuid;
 
@@ -64,7 +65,7 @@ impl VmDir {
         }
     }
 
-    pub fn pid(&self) -> Option<i32> {
+    pub fn pid(&self) -> Option<pid_t> {
         let lock = FileLock::new(&self.config_path);
         lock.pid()
     }
@@ -79,7 +80,7 @@ pub fn vm_dir(name: &str) -> VmDir {
 }
 
 pub fn create_temp_vm_dir() -> Result<VmDir, Exception> {
-    let temp_dir = PathBuf::from(format!("~/.vm/{}", Uuid::new_v4())).to_absolute_path();
+    let temp_dir = home_dir().join(Uuid::new_v4().to_string());
     info!("create vm dir, dir={}", temp_dir.to_string_lossy());
     fs::create_dir_all(&temp_dir)?;
     Ok(VmDir::new(temp_dir))

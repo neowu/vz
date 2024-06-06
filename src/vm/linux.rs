@@ -61,8 +61,7 @@ fn create_vm_config(
         vz_config.setPlatform(VZGenericPlatformConfiguration::new().as_ref());
 
         if gui {
-            let (width, height) = config.display()?;
-            vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(width, height)]));
+            vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1024, 768)]));
             vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZUSBKeyboardConfiguration::new())]));
             vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(
                 VZUSBScreenCoordinatePointingDeviceConfiguration::new(),

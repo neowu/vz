@@ -110,6 +110,7 @@ pub fn stop_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {
             }
         }
     });
+    // dispatch::Queue::main().exec_after(Duration::from_secs(15), || force_stop_vm_2(x));
 }
 
 pub fn force_stop_vm(bound: &MainThreadBound<Retained<VZVirtualMachine>>) {

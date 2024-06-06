@@ -42,13 +42,19 @@ pub struct Create {
     #[arg(long, help = "disk size in gb", default_value_t = 50)]
     disk_size: u64,
 
-    #[arg(long, help = "macOS restore image ipsw url, e.g. --ipsw=\"UniversalMac_14.5_23F79_Restore.ipsw\"", value_hint = ValueHint::FilePath)]
+    #[arg(long, help = "macOS restore image file, e.g. --ipsw=UniversalMac_14.5_23F79_Restore.ipsw", value_hint = ValueHint::FilePath)]
     ipsw: Option<PathBuf>,
 }
 
 impl Create {
     pub fn execute(&self) -> Result<(), Exception> {
         self.validate()?;
+
+        let name = &self.name;
+        let dir = vm_dir::vm_dir(name);
+        if dir.initialized() {
+            return Err(Exception::ValidationError(format!("vm already exists, name={name}")));
+        }
 
         let temp_dir = vm_dir::create_temp_vm_dir()?;
         temp_dir.resize(self.disk_size * 1_000_000_000)?;
@@ -66,15 +72,18 @@ impl Create {
         Ok(())
     }
 
-    fn validate(&self) -> Result<(), Exception> {
-        let name = &self.name;
-        let dir = vm_dir::vm_dir(name);
-        if dir.initialized() {
-            return Err(Exception::ValidationError(format!("vm already exists, name={name}")));
-        }
+    pub fn validate(&self) -> Result<(), Exception> {
         if let Os::MacOs = self.os {
-            if self.ipsw.is_none() {
-                return Err(Exception::ValidationError("ipsw must not be null for macOS vm".to_string()));
+            match &self.ipsw {
+                Some(path) => {
+                    if !path.exists() {
+                        return Err(Exception::ValidationError(format!(
+                            "ipsw does not exist, path={}",
+                            path.to_string_lossy()
+                        )));
+                    }
+                }
+                None => return Err(Exception::ValidationError("ipsw must not be null for macOS vm".to_string())),
             }
         };
         Ok(())
@@ -99,7 +108,6 @@ fn create_linux(dir: &VmDir) -> Result<(), Exception> {
         cpu: 1,
         memory: 1024 * 1024 * 1024,
         mac_address: random_mac_address(),
-        display: "1024x768".to_string(),
         sharing: HashMap::new(),
         rosetta: Some(false),
         hardware_model: None,
@@ -152,13 +160,13 @@ fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
         cpu: max(4, unsafe { requirements.minimumSupportedCPUCount() }),
         memory: max(8 * 1024 * 1024 * 1024, unsafe { requirements.minimumSupportedMemorySize() }),
         mac_address: random_mac_address(),
-        display: "1920x1080".to_string(),
         sharing: HashMap::new(),
         rosetta: None,
         hardware_model: Some(hardware_model),
         machine_identifier: Some(machine_identifier),
     };
     dir.save_config(&config)?;
+
     Ok(())
 }
 

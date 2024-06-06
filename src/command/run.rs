@@ -56,12 +56,19 @@ pub struct Run {
     gui: bool,
     #[arg(short, help = "run vm in background", default_value_t = false)]
     detached: bool,
-    #[arg(long, help = "attach disk image in read only mode, e.g. --mount=\"debian.iso\"", value_hint = ValueHint::FilePath)]
+    #[arg(long, help = "attach disk image in read only mode, e.g. --mount=debian.iso", value_hint = ValueHint::FilePath)]
     mount: Option<PathBuf>,
 }
 
 impl Run {
     pub async fn execute(&self) -> Result<(), Exception> {
+        if let Some(path) = &self.mount {
+            return Err(Exception::ValidationError(format!(
+                "mount does not exist, path={}",
+                path.to_string_lossy()
+            )));
+        }
+
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
@@ -110,8 +117,8 @@ impl Run {
         delegate::start_vm(&MainThreadBound::new(vm.clone(), marker));
 
         if self.gui {
-            let automatically_reconfigures_display = matches!(&config.os, Os::MacOs);
-            run_gui(name, vm, delegate, automatically_reconfigures_display);
+            let auto_reconfig_display = matches!(&config.os, Os::MacOs);
+            run_gui(name, vm, delegate, auto_reconfig_display, marker);
         } else {
             unsafe {
                 dispatch_main();
@@ -134,9 +141,7 @@ fn run_in_background(name: &str, log_path: &Path) -> Result<(), Exception> {
     Ok(())
 }
 
-fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>, automatically_reconfigures_display: bool) {
-    let marker = MainThreadMarker::new().unwrap();
-
+fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>, auto_reconfig_display: bool, marker: MainThreadMarker) {
     let app = NSApplication::sharedApplication(marker);
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
 
@@ -167,7 +172,7 @@ fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDele
     unsafe {
         let machine_view = VZVirtualMachineView::initWithFrame(marker.alloc(), window.contentLayoutRect());
         machine_view.setCapturesSystemKeys(true);
-        machine_view.setAutomaticallyReconfiguresDisplay(automatically_reconfigures_display);
+        machine_view.setAutomaticallyReconfiguresDisplay(auto_reconfig_display);
         machine_view.setVirtualMachine(Some(&vm));
         machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewWidthSizable | NSAutoresizingMaskOptions::NSViewHeightSizable);
 

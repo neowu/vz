@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::num::ParseIntError;
 use std::path::PathBuf;
 
 use objc2::rc::Id;
@@ -18,7 +17,6 @@ use objc2_virtualization::VZVirtioNetworkDeviceConfiguration;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 
 #[derive(Serialize, Deserialize, Debug, Clone, clap::ValueEnum)]
@@ -38,7 +36,6 @@ pub struct VmConfig {
     pub memory: u64,
     #[serde(rename = "macAddress")]
     pub mac_address: String,
-    pub display: String,
     pub sharing: HashMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rosetta: Option<bool>,
@@ -57,11 +54,6 @@ impl VmConfig {
             network.setMACAddress(mac_address.unwrap().as_ref());
             Id::into_super(network)
         }
-    }
-
-    pub fn display(&self) -> Result<(isize, isize), Exception> {
-        let (width, height) = self.display.split_once('x').unwrap();
-        Ok((width.parse()?, height.parse()?))
     }
 
     pub fn sharing_directories(&self) -> Option<Retained<VZDirectorySharingDeviceConfiguration>> {
@@ -91,11 +83,5 @@ impl VmConfig {
             device.setShare(Some(&Id::into_super(sharings)));
             Some(Id::into_super(device))
         }
-    }
-}
-
-impl From<ParseIntError> for Exception {
-    fn from(err: ParseIntError) -> Self {
-        Exception::ValidationError(err.to_string())
     }
 }

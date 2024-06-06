@@ -16,7 +16,7 @@ pub struct Install {
     #[arg(help = "vm name")]
     name: String,
 
-    #[arg(long, help = "macOS restore image ipsw url, e.g. --ipsw=\"UniversalMac_14.5_23F79_Restore.ipsw\"", value_hint = ValueHint::FilePath)]
+    #[arg(long, help = "macOS restore image file, e.g. --ipsw=UniversalMac_14.5_23F79_Restore.ipsw", value_hint = ValueHint::FilePath)]
     ipsw: PathBuf,
 }
 
@@ -30,6 +30,12 @@ impl Install {
         let config = dir.load_config()?;
         if !matches!(config.os, Os::MacOs) {
             return Err(Exception::ValidationError("install requires macOS guest".to_string()));
+        }
+        if !self.ipsw.exists() {
+            return Err(Exception::ValidationError(format!(
+                "ipsw does not exist, path={}",
+                self.ipsw.to_string_lossy()
+            )));
         }
 
         let _lock = dir.lock()?;

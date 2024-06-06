@@ -6,8 +6,8 @@ use clap::Args;
 use tracing::error;
 use tracing::info;
 
+use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
-use crate::config::vm_dir::{self};
 use crate::util::exception::Exception;
 
 #[derive(Args)]

@@ -67,9 +67,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig) -> Result<Retained<VZVirtual
         vz_config.setBootLoader(Some(&VZMacOSBootLoader::new()));
         vz_config.setPlatform(&platform(dir, config));
 
-        let (width, height) = config.display()?;
-        vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(width, height)]));
-
+        vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1920, 1080)]));
         vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZMacKeyboardConfiguration::new())]));
         vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(VZMacTrackpadConfiguration::new())]));
 

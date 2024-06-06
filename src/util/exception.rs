@@ -2,8 +2,10 @@ use std::backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::io;
+use std::num::ParseIntError;
 use std::sync::mpsc::RecvError;
 
+use objc2::rc::Retained;
 use objc2_foundation::NSError;
 use tokio::task::JoinError;
 
@@ -72,5 +74,28 @@ impl From<JoinError> for Exception {
 impl From<RecvError> for Exception {
     fn from(err: RecvError) -> Self {
         Exception::unexpected(err)
+    }
+}
+
+impl From<Retained<NSError>> for Exception {
+    fn from(err: Retained<NSError>) -> Self {
+        Exception::ObjcError(err.localizedDescription().to_string())
+    }
+}
+
+impl From<Option<Retained<objc2::exception::Exception>>> for Exception {
+    fn from(err: Option<Retained<objc2::exception::Exception>>) -> Self {
+        let message = match err {
+            Some(err) => err.to_string(),
+            // in objc, throw nil
+            None => "nil".to_string(),
+        };
+        Exception::ObjcError(message)
+    }
+}
+
+impl From<ParseIntError> for Exception {
+    fn from(err: ParseIntError) -> Self {
+        Exception::ValidationError(err.to_string())
     }
 }
