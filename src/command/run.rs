@@ -5,11 +5,11 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::thread;
 
 use clap::Args;
 use clap::ValueHint;
 use dispatch::ffi::dispatch_main;
-use futures::stream::StreamExt;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::sel;
@@ -32,20 +32,21 @@ use objc2_foundation::NSString;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineDelegate;
 use objc2_virtualization::VZVirtualMachineView;
-use signal_hook::consts::SIGINT;
-use signal_hook::consts::SIGQUIT;
-use signal_hook::consts::SIGTERM;
-use signal_hook_tokio::Signals;
+use signal_hook::consts::signal::SIGINT;
+use signal_hook::consts::signal::SIGQUIT;
+use signal_hook::consts::signal::SIGTERM;
+use signal_hook::iterator::Signals;
 use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
-use crate::vm::delegate;
-use crate::vm::delegate::VMDelegate;
+use crate::vm::gui_delegate::GuiDelegate;
 use crate::vm::linux;
 use crate::vm::mac_os;
+use crate::vm::vm_delegate;
+use crate::vm::vm_delegate::VMDelegate;
 
 #[derive(Args)]
 pub struct Run {
@@ -60,7 +61,7 @@ pub struct Run {
 }
 
 impl Run {
-    pub async fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<(), Exception> {
         if let Some(path) = &self.mount {
             return Err(Exception::ValidationError(format!(
                 "mount does not exist, path={}",
@@ -99,34 +100,43 @@ impl Run {
             Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
             Os::MacOs => mac_os::create_vm(&dir, &config)?,
         };
-
-        let marker = MainThreadMarker::new().unwrap();
-        let bound = Arc::new(MainThreadBound::new(vm.clone(), marker));
-        let delegate = VMDelegate::new(marker, Arc::clone(&bound));
-        let proto: &ProtocolObject<dyn VZVirtualMachineDelegate> = ProtocolObject::from_ref(&*delegate);
+        let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> = ProtocolObject::from_retained(VMDelegate::new());
         unsafe {
-            vm.setDelegate(Some(proto));
+            vm.setDelegate(Some(&proto));
         }
+        let marker = MainThreadMarker::new().unwrap();
+        let vm = Arc::new(MainThreadBound::new(vm, marker));
 
-        let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
-        let handle = signals.handle();
-        let task = tokio::spawn(handle_signals(signals, Arc::clone(&bound)));
+        handle_signal(Arc::clone(&vm))?;
 
-        delegate::start_vm(Arc::clone(&bound));
+        vm_delegate::start_vm(Arc::clone(&vm));
 
         if self.gui {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
-            run_gui(name, vm, delegate, auto_reconfig_display, marker);
+            run_gui(name, marker, vm, auto_reconfig_display);
         } else {
             unsafe {
                 dispatch_main();
             }
         }
 
-        handle.close();
-        task.await?;
         Ok(())
     }
+}
+
+fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<(), Exception> {
+    let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
+    thread::spawn(move || {
+        let signal = signals.forever().next().unwrap();
+        info!("recived signal, signal={signal}");
+        match signal {
+            SIGTERM | SIGINT | SIGQUIT => {
+                vm_delegate::stop_vm(vm);
+            }
+            _ => unreachable!(),
+        }
+    });
+    Ok(())
 }
 
 fn run_in_background(name: &str, log_path: &Path) -> Result<(), Exception> {
@@ -139,7 +149,7 @@ fn run_in_background(name: &str, log_path: &Path) -> Result<(), Exception> {
     Ok(())
 }
 
-fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDelegate>, auto_reconfig_display: bool, marker: MainThreadMarker) {
+fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>, auto_reconfig_display: bool) {
     let app = NSApplication::sharedApplication(marker);
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
 
@@ -157,8 +167,6 @@ fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDele
         )
     };
     window.setTitle(&NSString::from_str(name));
-    let proto: &ProtocolObject<dyn NSWindowDelegate> = ProtocolObject::from_ref(&*delegate);
-    window.setDelegate(Some(proto));
 
     let menu = NSMenu::new(marker);
     let menu_item = NSMenuItem::new(marker);
@@ -167,27 +175,19 @@ fn run_gui(name: &str, vm: Retained<VZVirtualMachine>, delegate: Retained<VMDele
     menu_item.setSubmenu(Some(&sub_menu));
     menu.addItem(&menu_item);
     app.setMainMenu(Some(&menu));
+
     unsafe {
         let machine_view = VZVirtualMachineView::initWithFrame(marker.alloc(), window.contentLayoutRect());
         machine_view.setCapturesSystemKeys(true);
         machine_view.setAutomaticallyReconfiguresDisplay(auto_reconfig_display);
-        machine_view.setVirtualMachine(Some(&vm));
+        machine_view.setVirtualMachine(Some(vm.get(marker)));
         machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewWidthSizable | NSAutoresizingMaskOptions::NSViewHeightSizable);
-
         window.contentView().unwrap().addSubview(&machine_view);
     }
+
+    let proto: Retained<ProtocolObject<dyn NSWindowDelegate>> = ProtocolObject::from_retained(GuiDelegate::new(marker, vm));
+    window.setDelegate(Some(&proto));
+
     window.makeKeyAndOrderFront(Option::None);
-
     unsafe { app.run() };
-}
-
-async fn handle_signals(mut signals: Signals, bound: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
-    if let Some(signal) = signals.next().await {
-        match signal {
-            SIGTERM | SIGINT | SIGQUIT => {
-                delegate::stop_vm(bound);
-            }
-            _ => unreachable!(),
-        }
-    }
 }

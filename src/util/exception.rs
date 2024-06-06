@@ -7,7 +7,6 @@ use std::sync::mpsc::RecvError;
 
 use objc2::rc::Retained;
 use objc2_foundation::NSError;
-use tokio::task::JoinError;
 
 pub enum Exception {
     ValidationError(String),
@@ -61,12 +60,6 @@ impl Error for Exception {}
 
 impl From<io::Error> for Exception {
     fn from(err: io::Error) -> Self {
-        Exception::unexpected(err)
-    }
-}
-
-impl From<JoinError> for Exception {
-    fn from(err: JoinError) -> Self {
         Exception::unexpected(err)
     }
 }

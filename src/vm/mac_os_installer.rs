@@ -40,7 +40,7 @@ pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path) -> Result<(), Except
     let _observer = VZMacOSInstallerObserver::new(unsafe { installer.progress() });
     let installer = MainThreadBound::new(installer, MainThreadMarker::new().unwrap());
 
-    run_on_main(move |marker| {
+    run_on_main(|marker| {
         let installer = installer.get(marker);
         let block = &StackBlock::new(move |err: *mut NSError| {
             if !err.is_null() {

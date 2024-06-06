@@ -44,12 +44,11 @@ pub enum Command {
     GenerateZshCompletion(GenerateZshCompletion),
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Exception> {
+fn main() -> Result<(), Exception> {
     tracing_subscriber::fmt().with_thread_ids(true).init();
     let cli = Cli::parse();
     match cli.command {
-        Some(Command::Run(command)) => command.execute().await,
+        Some(Command::Run(command)) => command.execute(),
         Some(Command::Create(command)) => command.execute(),
         Some(Command::Stop(command)) => command.execute(),
         Some(Command::List(command)) => command.execute(),

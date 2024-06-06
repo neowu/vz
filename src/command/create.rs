@@ -136,9 +136,8 @@ fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
             .to_string()
     };
     unsafe {
-        let hardware_model = &hardware_model;
-        catch(move || {
-            let model = mac_os::hardware_model(hardware_model);
+        catch(|| {
+            let model = mac_os::hardware_model(&hardware_model);
             VZMacAuxiliaryStorage::initCreatingStorageAtURL_hardwareModel_options_error(
                 VZMacAuxiliaryStorage::alloc(),
                 &dir.nvram_path.to_ns_url(),
