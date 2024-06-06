@@ -42,11 +42,11 @@ use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
+use crate::vm;
 use crate::vm::gui_delegate::GuiDelegate;
 use crate::vm::linux;
 use crate::vm::mac_os;
-use crate::vm::vm_delegate;
-use crate::vm::vm_delegate::VMDelegate;
+use crate::vm::vm_delegate::VmDelegate;
 
 #[derive(Args)]
 pub struct Run {
@@ -100,16 +100,15 @@ impl Run {
             Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
             Os::MacOs => mac_os::create_vm(&dir, &config)?,
         };
-        let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> = ProtocolObject::from_retained(VMDelegate::new());
+        let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> = ProtocolObject::from_retained(VmDelegate::new());
         unsafe {
             vm.setDelegate(Some(&proto));
         }
         let marker = MainThreadMarker::new().unwrap();
         let vm = Arc::new(MainThreadBound::new(vm, marker));
+        vm::start_vm(Arc::clone(&vm));
 
         handle_signal(Arc::clone(&vm))?;
-
-        vm_delegate::start_vm(Arc::clone(&vm));
 
         if self.gui {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
@@ -131,7 +130,7 @@ fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result
         info!("recived signal, signal={signal}");
         match signal {
             SIGTERM | SIGINT | SIGQUIT => {
-                vm_delegate::stop_vm(vm);
+                vm::stop_vm(vm);
             }
             _ => unreachable!(),
         }

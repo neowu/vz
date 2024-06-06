@@ -14,7 +14,7 @@ use objc2_foundation::NSObject;
 use objc2_foundation::NSObjectProtocol;
 use objc2_virtualization::VZVirtualMachine;
 
-use crate::vm::vm_delegate;
+use crate::vm;
 
 pub struct Ivars {
     vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>,
@@ -38,7 +38,7 @@ declare_class!(
     unsafe impl NSWindowDelegate for GuiDelegate {
         #[method(windowWillClose:)]
         fn window_will_close(&self, _: &NSNotification) {
-             vm_delegate::stop_vm(Arc::clone(&self.ivars().vm));
+             vm::stop_vm(Arc::clone(&self.ivars().vm));
         }
     }
 );

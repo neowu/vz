@@ -22,7 +22,12 @@ pub struct Install {
 
 impl Install {
     pub fn execute(&self) -> Result<(), Exception> {
-        info!("instal macOS");
+        if !self.ipsw.exists() {
+            return Err(Exception::ValidationError(format!(
+                "ipsw does not exist, path={}",
+                self.ipsw.to_string_lossy()
+            )));
+        }
         let dir = vm_dir::vm_dir(&self.name);
         if !dir.initialized() {
             return Err(Exception::ValidationError(format!("vm not initialized, name={}", self.name)));
@@ -31,15 +36,9 @@ impl Install {
         if !matches!(config.os, Os::MacOs) {
             return Err(Exception::ValidationError("install requires macOS guest".to_string()));
         }
-        if !self.ipsw.exists() {
-            return Err(Exception::ValidationError(format!(
-                "ipsw does not exist, path={}",
-                self.ipsw.to_string_lossy()
-            )));
-        }
-
         let _lock = dir.lock()?;
 
+        info!("instal macOS");
         let vm = mac_os::create_vm(&dir, &config)?;
         mac_os_installer::install(vm, &self.ipsw.to_absolute_path())?;
 

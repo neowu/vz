@@ -68,7 +68,7 @@ declare_class!(
 
     unsafe impl ClassType for VZMacOSInstallerObserver {
         type Super = NSObject;
-        type Mutability = mutability::InteriorMutable;
+        type Mutability = mutability::Immutable;
         const NAME: &'static str = "VZMacOSInstallerObserver";
     }
 
