@@ -83,7 +83,7 @@ impl Create {
                         )));
                     }
                 }
-                None => return Err(Exception::ValidationError("ipsw must not be null for macOS vm".to_string())),
+                None => return Err(Exception::ValidationError("ipsw is required for macOS vm".to_string())),
             }
         };
         Ok(())

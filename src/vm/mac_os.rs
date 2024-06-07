@@ -79,7 +79,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig) -> Result<Retained<VZVirtual
         )]));
         vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
 
-        if let Some(sharing) = config.sharing_directories() {
+        if let Some(sharing) = config.sharing_directories()? {
             vz_config.setDirectorySharingDevices(&NSArray::from_vec(vec![sharing]));
         }
         Ok(vz_config)

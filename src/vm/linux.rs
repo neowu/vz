@@ -77,7 +77,7 @@ fn create_vm_config(
         vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
 
         let mut sharings: Vec<Retained<VZDirectorySharingDeviceConfiguration>> = vec![];
-        if let Some(sharing) = config.sharing_directories() {
+        if let Some(sharing) = config.sharing_directories()? {
             sharings.push(sharing);
         }
         if let Some(true) = config.rosetta {

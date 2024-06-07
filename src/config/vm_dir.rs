@@ -81,7 +81,7 @@ pub fn vm_dir(name: &str) -> VmDir {
 
 pub fn create_temp_vm_dir() -> Result<VmDir, Exception> {
     let temp_dir = home_dir().join(Uuid::new_v4().to_string());
-    info!("create vm dir, dir={}", temp_dir.to_string_lossy());
+    info!("create temp vm dir, dir={}", temp_dir.to_string_lossy());
     fs::create_dir_all(&temp_dir)?;
     Ok(VmDir::new(temp_dir))
 }

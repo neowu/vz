@@ -1,6 +1,5 @@
 use std::env::current_exe;
 use std::fs::File;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
@@ -62,32 +61,16 @@ pub struct Run {
 
 impl Run {
     pub fn execute(&self) -> Result<(), Exception> {
-        if let Some(path) = &self.mount {
-            return Err(Exception::ValidationError(format!(
-                "mount does not exist, path={}",
-                path.to_string_lossy()
-            )));
-        }
+        self.validate()?;
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
             return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
         }
+
         if self.detached {
-            if self.gui || self.mount.is_some() {
-                return Err(Exception::ValidationError("-d must not be used with --gui and --mount".to_string()));
-            }
-            let log_path = &PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
-            if let Ok(metadata) = log_path.metadata() {
-                if !metadata.is_file() || metadata.permissions().readonly() {
-                    return Err(Exception::ValidationError(format!(
-                        "log file is not writable, path={}",
-                        log_path.to_string_lossy()
-                    )));
-                }
-            }
-            return run_in_background(name, log_path);
+            return run_in_background(name);
         }
 
         let config = dir.load_config()?;
@@ -121,6 +104,42 @@ impl Run {
 
         Ok(())
     }
+
+    fn validate(&self) -> Result<(), Exception> {
+        if let Some(path) = &self.mount {
+            return Err(Exception::ValidationError(format!(
+                "mount does not exist, path={}",
+                path.to_string_lossy()
+            )));
+        }
+
+        if self.detached && (self.gui || self.mount.is_some()) {
+            return Err(Exception::ValidationError("-d must not be used with --gui and --mount".to_string()));
+        }
+
+        Ok(())
+    }
+}
+
+fn run_in_background(name: &str) -> Result<(), Exception> {
+    let log_path = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
+
+    if let Ok(metadata) = log_path.metadata() {
+        if !metadata.is_file() || metadata.permissions().readonly() {
+            return Err(Exception::ValidationError(format!(
+                "log file is not writable, path={}",
+                log_path.to_string_lossy()
+            )));
+        }
+    }
+
+    let mut command = Command::new(current_exe()?);
+    command.args(["run", name]);
+    command.stdout(Stdio::from(File::create(&log_path)?));
+    command.stderr(Stdio::from(File::create(&log_path)?));
+    command.spawn()?;
+    info!("vm launched in background, check log in {}", log_path.to_string_lossy());
+    Ok(())
 }
 
 fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<(), Exception> {
@@ -135,16 +154,6 @@ fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result
             _ => unreachable!(),
         }
     });
-    Ok(())
-}
-
-fn run_in_background(name: &str, log_path: &Path) -> Result<(), Exception> {
-    let mut command = Command::new(current_exe()?);
-    command.args(["run", name]);
-    command.stdout(Stdio::from(File::create(log_path)?));
-    command.stderr(Stdio::from(File::create(log_path)?));
-    command.spawn()?;
-    info!("vm launched in background, check log in {}", log_path.to_string_lossy());
     Ok(())
 }
 

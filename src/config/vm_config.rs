@@ -17,6 +17,7 @@ use objc2_virtualization::VZVirtioNetworkDeviceConfiguration;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 
 #[derive(Serialize, Deserialize, Debug, Clone, clap::ValueEnum)]
@@ -56,22 +57,31 @@ impl VmConfig {
         }
     }
 
-    pub fn sharing_directories(&self) -> Option<Retained<VZDirectorySharingDeviceConfiguration>> {
+    pub fn sharing_directories(&self) -> Result<Option<Retained<VZDirectorySharingDeviceConfiguration>>, Exception> {
         if self.sharing.is_empty() {
-            return None;
+            return Ok(None);
         }
         let mut keys: Vec<Retained<NSString>> = vec![];
         let mut values: Vec<Retained<VZSharedDirectory>> = vec![];
-        unsafe {
-            for (key, value) in self.sharing.iter() {
-                keys.push(NSString::from_str(key));
+
+        for (key, value) in self.sharing.iter() {
+            keys.push(NSString::from_str(key));
+            let path = PathBuf::from(value).to_absolute_path();
+            if !path.exists() {
+                return Err(Exception::ValidationError(format!(
+                    "sharing path does not exist, name={key}, path={}",
+                    path.to_string_lossy()
+                )));
+            }
+            unsafe {
                 values.push(VZSharedDirectory::initWithURL_readOnly(
                     VZSharedDirectory::alloc(),
-                    &PathBuf::from(value).to_absolute_path().to_ns_url(),
+                    &path.to_ns_url(),
                     false,
                 ));
             }
         }
+
         let keys: Vec<&NSString> = keys.iter().map(|v| v.as_ref()).collect();
         let directories = NSDictionary::from_vec(&keys, values);
         unsafe {
@@ -81,7 +91,7 @@ impl VmConfig {
             );
             let sharings = VZMultipleDirectoryShare::initWithDirectories(VZMultipleDirectoryShare::alloc(), &directories);
             device.setShare(Some(&Id::into_super(sharings)));
-            Some(Id::into_super(device))
+            Ok(Some(Id::into_super(device)))
         }
     }
 }

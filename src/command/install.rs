@@ -22,15 +22,12 @@ pub struct Install {
 
 impl Install {
     pub fn execute(&self) -> Result<(), Exception> {
-        if !self.ipsw.exists() {
-            return Err(Exception::ValidationError(format!(
-                "ipsw does not exist, path={}",
-                self.ipsw.to_string_lossy()
-            )));
-        }
-        let dir = vm_dir::vm_dir(&self.name);
+        self.validate()?;
+
+        let name = &self.name;
+        let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Err(Exception::ValidationError(format!("vm not initialized, name={}", self.name)));
+            return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
         }
         let config = dir.load_config()?;
         if !matches!(config.os, Os::MacOs) {
@@ -42,6 +39,16 @@ impl Install {
         let vm = mac_os::create_vm(&dir, &config)?;
         mac_os_installer::install(vm, &self.ipsw.to_absolute_path())?;
 
+        Ok(())
+    }
+
+    fn validate(&self) -> Result<(), Exception> {
+        if !self.ipsw.exists() {
+            return Err(Exception::ValidationError(format!(
+                "ipsw does not exist, path={}",
+                self.ipsw.to_string_lossy()
+            )));
+        }
         Ok(())
     }
 }
