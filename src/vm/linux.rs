@@ -58,7 +58,7 @@ fn create_vm_config(
         vz_config.setMemorySize(config.memory);
 
         vz_config.setBootLoader(Option::Some(&boot_loader(dir)));
-        vz_config.setPlatform(VZGenericPlatformConfiguration::new().as_ref());
+        vz_config.setPlatform(&VZGenericPlatformConfiguration::new());
 
         if gui {
             vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1024, 768)]));

@@ -51,8 +51,8 @@ impl VmConfig {
         unsafe {
             let network = VZVirtioNetworkDeviceConfiguration::new();
             network.setAttachment(Some(&VZNATNetworkDeviceAttachment::new()));
-            let mac_address = VZMACAddress::initWithString(VZMACAddress::alloc(), &NSString::from_str(&self.mac_address));
-            network.setMACAddress(mac_address.unwrap().as_ref());
+            let mac_address = VZMACAddress::initWithString(VZMACAddress::alloc(), &NSString::from_str(&self.mac_address)).unwrap();
+            network.setMACAddress(&mac_address);
             Id::into_super(network)
         }
     }

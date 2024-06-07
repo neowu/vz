@@ -79,15 +79,15 @@ impl Run {
         // must hold lock reference, otherwise fd will be deallocated, and release all locks
         let _lock = dir.lock()?;
 
+        let marker = MainThreadMarker::new().unwrap();
         let vm = match config.os {
             Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
-            Os::MacOs => mac_os::create_vm(&dir, &config)?,
+            Os::MacOs => mac_os::create_vm(&dir, &config, marker)?,
         };
         let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> = ProtocolObject::from_retained(VmDelegate::new());
         unsafe {
             vm.setDelegate(Some(&proto));
         }
-        let marker = MainThreadMarker::new().unwrap();
         let vm = Arc::new(MainThreadBound::new(vm, marker));
         vm::start_vm(Arc::clone(&vm));
 

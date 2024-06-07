@@ -39,9 +39,9 @@ use crate::config::vm_dir::VmDir;
 use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 
-pub fn create_vm(dir: &VmDir, config: &VmConfig) -> Result<Retained<VZVirtualMachine>, Exception> {
+pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachine>, Exception> {
     info!("create macOS vm, name={}", dir.name());
-    let vz_config = create_vm_config(dir, config)?;
+    let vz_config = create_vm_config(dir, config, marker)?;
     unsafe {
         vz_config.validateWithError()?;
         Ok(VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config))
@@ -58,7 +58,7 @@ pub fn hardware_model(base64_string: &str) -> Retained<VZMacHardwareModel> {
     }
 }
 
-fn create_vm_config(dir: &VmDir, config: &VmConfig) -> Result<Retained<VZVirtualMachineConfiguration>, Exception> {
+fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachineConfiguration>, Exception> {
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
@@ -67,7 +67,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig) -> Result<Retained<VZVirtual
         vz_config.setBootLoader(Some(&VZMacOSBootLoader::new()));
         vz_config.setPlatform(&platform(dir, config));
 
-        vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1920, 1080)]));
+        vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1920, 1080, marker)]));
         vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZMacKeyboardConfiguration::new())]));
         vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(VZMacTrackpadConfiguration::new())]));
 
@@ -115,8 +115,8 @@ fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception
     }
 }
 
-fn display(width: isize, height: isize) -> Retained<VZGraphicsDeviceConfiguration> {
-    let screen = NSScreen::mainScreen(MainThreadMarker::new().unwrap()).unwrap();
+fn display(width: isize, height: isize, marker: MainThreadMarker) -> Retained<VZGraphicsDeviceConfiguration> {
+    let screen = NSScreen::mainScreen(marker).unwrap();
     unsafe {
         let display = VZMacGraphicsDeviceConfiguration::new();
         display.setDisplays(&NSArray::from_vec(vec![VZMacGraphicsDisplayConfiguration::initForScreen_sizeInPoints(

@@ -35,10 +35,10 @@ use tracing::info;
 use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 
-pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path) -> Result<(), Exception> {
+pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMarker) -> Result<(), Exception> {
     let installer = unsafe { VZMacOSInstaller::initWithVirtualMachine_restoreImageURL(VZMacOSInstaller::alloc(), &vm, &ipsw.to_ns_url()) };
     let _observer = VZMacOSInstallerObserver::new(unsafe { installer.progress() });
-    let installer = MainThreadBound::new(installer, MainThreadMarker::new().unwrap());
+    let installer = MainThreadBound::new(installer, marker);
 
     run_on_main(|marker| {
         let installer = installer.get(marker);

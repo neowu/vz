@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 use clap::ValueHint;
+use objc2_foundation::MainThreadMarker;
 use tracing::info;
 
 use crate::config::vm_config::Os;
@@ -36,8 +37,9 @@ impl Install {
         let _lock = dir.lock()?;
 
         info!("instal macOS");
-        let vm = mac_os::create_vm(&dir, &config)?;
-        mac_os_installer::install(vm, &self.ipsw.to_absolute_path())?;
+        let marker = MainThreadMarker::new().unwrap();
+        let vm = mac_os::create_vm(&dir, &config, marker)?;
+        mac_os_installer::install(vm, &self.ipsw.to_absolute_path(), marker)?;
 
         Ok(())
     }
