@@ -9,7 +9,7 @@ pub struct Resize {
     #[arg(help = "vm name")]
     name: String,
 
-    #[arg(long, help = "disk size in gb", default_value_t = 50)]
+    #[arg(long, help = "disk size in gb")]
     disk_size: u64,
 }
 
