@@ -135,8 +135,8 @@ fn run_in_background(name: &str) -> Result<(), Exception> {
 
     let mut command = Command::new(current_exe()?);
     command.args(["run", name]);
-    command.stdout(Stdio::from(File::create(&log_path)?));
-    command.stderr(Stdio::from(File::create(&log_path)?));
+    command.stdout(Stdio::from(File::options().create(true).append(true).open(&log_path)?));
+    command.stderr(Stdio::from(File::options().create(true).append(true).open(&log_path)?));
     command.spawn()?;
     info!("vm launched in background, check log in {}", log_path.to_string_lossy());
     Ok(())
