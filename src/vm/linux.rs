@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Result;
+use log::info;
 use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
@@ -30,14 +32,13 @@ use objc2_virtualization::VZVirtioGraphicsScanoutConfiguration;
 use objc2_virtualization::VZVirtioTraditionalMemoryBalloonDeviceConfiguration;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
-use tracing::info;
 
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
-use crate::util::exception::Exception;
+use crate::util::objc::ObjcError;
 use crate::util::path::PathExtension;
 
-pub fn create_vm(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Result<Retained<VZVirtualMachine>, Exception> {
+pub fn create_vm(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Result<Retained<VZVirtualMachine>> {
     info!("create linux vm, name={}", dir.name());
     let vz_config = create_vm_config(dir, config, gui, mount)?;
     unsafe {
@@ -46,12 +47,7 @@ pub fn create_vm(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathB
     }
 }
 
-fn create_vm_config(
-    dir: &VmDir,
-    config: &VmConfig,
-    gui: bool,
-    mount: Option<&PathBuf>,
-) -> Result<Retained<VZVirtualMachineConfiguration>, Exception> {
+fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Result<Retained<VZVirtualMachineConfiguration>> {
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
@@ -100,7 +96,7 @@ fn boot_loader(dir: &VmDir) -> Retained<VZEFIBootLoader> {
     }
 }
 
-fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Result<Vec<Retained<VZStorageDeviceConfiguration>>, Exception> {
+fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Result<Vec<Retained<VZStorageDeviceConfiguration>>> {
     let disk = disk(&dir.disk_path)?;
     let mut storage = vec![disk];
     if let Option::Some(mount) = mount {
@@ -110,7 +106,7 @@ fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Result<Vec<Retained<VZStorag
     Ok(storage)
 }
 
-fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception> {
+fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>> {
     unsafe {
         let attachment = catch(|| {
             let url = NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&disk.to_string_lossy()));
@@ -121,17 +117,19 @@ fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception
                 VZDiskImageCachingMode::Automatic,
                 VZDiskImageSynchronizationMode::Fsync,
             )
-        })??;
+        })
+        .map_err(ObjcError::from)??;
         let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
         Ok(Id::into_super(disk))
     }
 }
 
-fn mount_disk(mount: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception> {
+fn mount_disk(mount: &Path) -> Result<Retained<VZStorageDeviceConfiguration>> {
     unsafe {
         let attachment = catch(|| {
             VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_error(VZDiskImageStorageDeviceAttachment::alloc(), &mount.to_ns_url(), true)
-        })??;
+        })
+        .map_err(ObjcError::from)??;
         let disk = VZUSBMassStorageDeviceConfiguration::initWithAttachment(VZUSBMassStorageDeviceConfiguration::alloc(), &attachment);
         Ok(Id::into_super(disk))
     }

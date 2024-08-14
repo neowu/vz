@@ -6,9 +6,13 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::thread;
 
+use anyhow::bail;
+use anyhow::Result;
 use clap::Args;
 use clap::ValueHint;
+use clap_complete::dynamic::ArgValueCompleter;
 use dispatch::ffi::dispatch_main;
+use log::info;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::sel;
@@ -35,11 +39,10 @@ use signal_hook::consts::signal::SIGINT;
 use signal_hook::consts::signal::SIGQUIT;
 use signal_hook::consts::signal::SIGTERM;
 use signal_hook::iterator::Signals;
-use tracing::info;
 
+use super::complete_vm_name;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
-use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 use crate::vm;
 use crate::vm::gui_delegate::GuiDelegate;
@@ -49,7 +52,7 @@ use crate::vm::vm_delegate::VmDelegate;
 
 #[derive(Args)]
 pub struct Run {
-    #[arg(help = "vm name")]
+    #[arg(help = "vm name", add = ArgValueCompleter::new(complete_vm_name))]
     name: String,
     #[arg(long, help = "open UI window", default_value_t = false)]
     gui: bool,
@@ -60,13 +63,13 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<()> {
         self.validate()?;
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
+            bail!("vm not initialized, name={name}");
         }
 
         if self.detached {
@@ -105,31 +108,25 @@ impl Run {
         Ok(())
     }
 
-    fn validate(&self) -> Result<(), Exception> {
+    fn validate(&self) -> Result<()> {
         if let Some(path) = &self.mount {
-            return Err(Exception::ValidationError(format!(
-                "mount does not exist, path={}",
-                path.to_string_lossy()
-            )));
+            bail!("mount does not exist, path={}", path.to_string_lossy());
         }
 
         if self.detached && (self.gui || self.mount.is_some()) {
-            return Err(Exception::ValidationError("-d must not be used with --gui and --mount".to_string()));
+            bail!("-d must not be used with --gui and --mount");
         }
 
         Ok(())
     }
 }
 
-fn run_in_background(name: &str) -> Result<(), Exception> {
+fn run_in_background(name: &str) -> Result<()> {
     let log_path = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
 
     if let Ok(metadata) = log_path.metadata() {
         if !metadata.is_file() || metadata.permissions().readonly() {
-            return Err(Exception::ValidationError(format!(
-                "log file is not writable, path={}",
-                log_path.to_string_lossy()
-            )));
+            bail!("log file is not writable, path={}", log_path.to_string_lossy());
         }
     }
 
@@ -142,7 +139,7 @@ fn run_in_background(name: &str) -> Result<(), Exception> {
     Ok(())
 }
 
-fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<(), Exception> {
+fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<()> {
     let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
     thread::spawn(move || {
         let signal = signals.forever().next().unwrap();

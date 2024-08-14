@@ -4,13 +4,13 @@ use std::time::Duration;
 
 use block2::StackBlock;
 use dispatch::Queue;
+use log::error;
+use log::info;
 use objc2::rc::Retained;
 use objc2_foundation::run_on_main;
 use objc2_foundation::MainThreadBound;
 use objc2_foundation::NSError;
 use objc2_virtualization::VZVirtualMachine;
-use tracing::error;
-use tracing::info;
 
 pub mod gui_delegate;
 pub mod linux;

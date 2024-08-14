@@ -1,5 +1,7 @@
 use std::process;
 
+use log::error;
+use log::info;
 use objc2::declare_class;
 use objc2::msg_send_id;
 use objc2::mutability;
@@ -12,8 +14,6 @@ use objc2_foundation::NSObjectProtocol;
 use objc2_virtualization::VZNetworkDevice;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineDelegate;
-use tracing::error;
-use tracing::info;
 
 declare_class!(
     pub struct VmDelegate;

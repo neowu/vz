@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use anyhow::bail;
+use anyhow::Result;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
@@ -17,7 +19,6 @@ use objc2_virtualization::VZVirtioNetworkDeviceConfiguration;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 
 #[derive(Serialize, Deserialize, Debug, Clone, clap::ValueEnum)]
@@ -57,7 +58,7 @@ impl VmConfig {
         }
     }
 
-    pub fn sharing_directories(&self) -> Result<Option<Retained<VZDirectorySharingDeviceConfiguration>>, Exception> {
+    pub fn sharing_directories(&self) -> Result<Option<Retained<VZDirectorySharingDeviceConfiguration>>> {
         if self.sharing.is_empty() {
             return Ok(None);
         }
@@ -68,10 +69,7 @@ impl VmConfig {
             keys.push(NSString::from_str(key));
             let path = PathBuf::from(value).to_absolute_path();
             if !path.exists() {
-                return Err(Exception::ValidationError(format!(
-                    "sharing path does not exist, name={key}, path={}",
-                    path.to_string_lossy()
-                )));
+                bail!("sharing path does not exist, name={key}, path={}", path.to_string_lossy());
             }
             unsafe {
                 values.push(VZSharedDirectory::initWithURL_readOnly(

@@ -1,13 +1,14 @@
 [package]
 name = "vz"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 
 [dependencies]
-tracing = "0"
-tracing-subscriber = "0"
+anyhow = "1"
+log = "0"
+env_logger = "0"
 clap = { version = "4", features = ["derive"] }
-clap_complete = "4"
+clap_complete = { version = "4", features = ["unstable-dynamic", "unstable-command"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 objc2 = { version = "0", features = ["std", "exception"] }
@@ -17,5 +18,5 @@ objc2-app-kit = { version = "0", features = ["all"] }
 block2 = "0"
 dispatch = "0"
 signal-hook = "0"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v7"] }
 libc = "0"

@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
+use anyhow::bail;
+use anyhow::Result;
 use clap::Args;
 use clap::ValueHint;
+use log::info;
 use objc2_foundation::MainThreadMarker;
-use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
-use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 use crate::vm::mac_os;
 use crate::vm::mac_os_installer;
@@ -22,17 +23,17 @@ pub struct Install {
 }
 
 impl Install {
-    pub fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<()> {
         self.validate()?;
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
+            bail!("vm not initialized, name={name}");
         }
         let config = dir.load_config()?;
         if !matches!(config.os, Os::MacOs) {
-            return Err(Exception::ValidationError("install requires macOS guest".to_string()));
+            bail!("install requires macOS guest");
         }
         let _lock = dir.lock()?;
 
@@ -44,12 +45,9 @@ impl Install {
         Ok(())
     }
 
-    fn validate(&self) -> Result<(), Exception> {
+    fn validate(&self) -> Result<()> {
         if !self.ipsw.exists() {
-            return Err(Exception::ValidationError(format!(
-                "ipsw does not exist, path={}",
-                self.ipsw.to_string_lossy()
-            )));
+            bail!("ipsw does not exist, path={}", self.ipsw.to_string_lossy());
         }
         Ok(())
     }

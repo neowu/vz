@@ -3,8 +3,11 @@ use core::ptr;
 use std::path::Path;
 use std::process;
 
+use anyhow::Result;
 use block2::StackBlock;
 use dispatch::ffi::dispatch_main;
+use log::error;
+use log::info;
 use objc2::declare_class;
 use objc2::msg_send_id;
 use objc2::mutability;
@@ -29,13 +32,10 @@ use objc2_foundation::NSProgress;
 use objc2_foundation::NSString;
 use objc2_virtualization::VZMacOSInstaller;
 use objc2_virtualization::VZVirtualMachine;
-use tracing::error;
-use tracing::info;
 
-use crate::util::exception::Exception;
 use crate::util::path::PathExtension;
 
-pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMarker) -> Result<(), Exception> {
+pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMarker) -> Result<()> {
     let installer = unsafe { VZMacOSInstaller::initWithVirtualMachine_restoreImageURL(VZMacOSInstaller::alloc(), &vm, &ipsw.to_ns_url()) };
     let _observer = VZMacOSInstallerObserver::new(unsafe { installer.progress() });
     let installer = MainThreadBound::new(installer, marker);

@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use anyhow::Result;
+use log::info;
 use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
@@ -32,14 +34,13 @@ use objc2_virtualization::VZVirtioEntropyDeviceConfiguration;
 use objc2_virtualization::VZVirtioTraditionalMemoryBalloonDeviceConfiguration;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
-use tracing::info;
 
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
-use crate::util::exception::Exception;
+use crate::util::objc::ObjcError;
 use crate::util::path::PathExtension;
 
-pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachine>, Exception> {
+pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachine>> {
     info!("create macOS vm, name={}", dir.name());
     let vz_config = create_vm_config(dir, config, marker)?;
     unsafe {
@@ -58,7 +59,7 @@ pub fn hardware_model(base64_string: &str) -> Retained<VZMacHardwareModel> {
     }
 }
 
-fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachineConfiguration>, Exception> {
+fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachineConfiguration>> {
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
@@ -99,7 +100,7 @@ fn platform(dir: &VmDir, config: &VmConfig) -> Retained<VZPlatformConfiguration>
     }
 }
 
-fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception> {
+fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>> {
     unsafe {
         let attachment = catch(|| {
             VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
@@ -109,7 +110,8 @@ fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>, Exception
                 VZDiskImageCachingMode::Automatic,
                 VZDiskImageSynchronizationMode::Fsync,
             )
-        })??;
+        })
+        .map_err(ObjcError::from)??;
         let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
         Ok(Id::into_super(disk))
     }

@@ -2,31 +2,33 @@ use std::process;
 use std::thread::sleep;
 use std::time::Duration;
 
+use anyhow::bail;
+use anyhow::Context;
+use anyhow::Result;
 use clap::Args;
-use tracing::error;
-use tracing::info;
+use clap_complete::dynamic::ArgValueCompleter;
+use log::error;
+use log::info;
 
+use super::complete_vm_name;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
-use crate::util::exception::Exception;
 
 #[derive(Args)]
 pub struct Stop {
-    #[arg(help = "vm name")]
+    #[arg(help = "vm name", add = ArgValueCompleter::new(complete_vm_name))]
     name: String,
 }
 
 impl Stop {
-    pub fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<()> {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            return Err(Exception::ValidationError(format!("vm not initialized, name={name}")));
+            bail!("vm not initialized, name={name}");
         }
 
-        let pid = dir
-            .pid()
-            .ok_or_else(|| Exception::ValidationError(format!("vm not running, name={name}")))?;
+        let pid = dir.pid().with_context(|| format!("vm not running, name={name}"))?;
         info!("stop vm, name={name}, pid={pid}");
         unsafe {
             libc::kill(pid, libc::SIGINT);

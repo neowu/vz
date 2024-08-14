@@ -1,20 +1,21 @@
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 
+use anyhow::bail;
+use anyhow::Result;
 use clap::Args;
 
 use crate::config::vm_dir;
-use crate::util::exception::Exception;
 use crate::util::json;
 
 #[derive(Args)]
 pub struct List;
 
 impl List {
-    pub fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<()> {
         let home_dir = vm_dir::home_dir();
         if !home_dir.exists() {
-            return Err(Exception::ValidationError(format!("{} does not exist", home_dir.to_string_lossy())));
+            bail!("{} does not exist", home_dir.to_string_lossy());
         }
         println!("{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}", "name", "os", "cpu", "memory", "disk", "status");
         for entry in fs::read_dir(home_dir)? {

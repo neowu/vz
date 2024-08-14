@@ -5,9 +5,13 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 
+use anyhow::bail;
+use anyhow::Context;
+use anyhow::Result;
 use block2::StackBlock;
 use clap::Args;
 use clap::ValueHint;
+use log::info;
 use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
@@ -21,13 +25,12 @@ use objc2_virtualization::VZMacAuxiliaryStorage;
 use objc2_virtualization::VZMacAuxiliaryStorageInitializationOptions;
 use objc2_virtualization::VZMacMachineIdentifier;
 use objc2_virtualization::VZMacOSRestoreImage;
-use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
-use crate::util::exception::Exception;
+use crate::util::objc::ObjcError;
 use crate::util::path::PathExtension;
 use crate::vm::mac_os;
 
@@ -47,13 +50,13 @@ pub struct Create {
 }
 
 impl Create {
-    pub fn execute(&self) -> Result<(), Exception> {
+    pub fn execute(&self) -> Result<()> {
         self.validate()?;
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if dir.initialized() {
-            return Err(Exception::ValidationError(format!("vm already exists, name={name}")));
+            bail!("vm already exists, name={name}");
         }
 
         let temp_dir = vm_dir::create_temp_vm_dir()?;
@@ -72,25 +75,22 @@ impl Create {
         Ok(())
     }
 
-    pub fn validate(&self) -> Result<(), Exception> {
+    pub fn validate(&self) -> Result<()> {
         if let Os::MacOs = self.os {
             match &self.ipsw {
                 Some(path) => {
                     if !path.exists() {
-                        return Err(Exception::ValidationError(format!(
-                            "ipsw does not exist, path={}",
-                            path.to_string_lossy()
-                        )));
+                        bail!("ipsw does not exist, path={}", path.to_string_lossy());
                     }
                 }
-                None => return Err(Exception::ValidationError("ipsw is required for macOS vm".to_string())),
+                None => bail!("ipsw is required for macOS vm"),
             }
         };
         Ok(())
     }
 }
 
-fn create_linux(dir: &VmDir) -> Result<(), Exception> {
+fn create_linux(dir: &VmDir) -> Result<()> {
     info!("create nvram.bin");
     unsafe {
         catch(|| {
@@ -99,7 +99,8 @@ fn create_linux(dir: &VmDir) -> Result<(), Exception> {
                 &dir.nvram_path.to_ns_url(),
                 VZEFIVariableStoreInitializationOptions::empty(),
             )
-        })??;
+        })
+        .map_err(ObjcError::from)??;
     }
 
     info!("create config.json");
@@ -118,13 +119,13 @@ fn create_linux(dir: &VmDir) -> Result<(), Exception> {
     Ok(())
 }
 
-fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
+fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<()> {
     let image = load_mac_os_restore_image(ipsw)?;
 
     let requirements = unsafe {
         image
             .mostFeaturefulSupportedConfiguration()
-            .ok_or_else(|| Exception::ValidationError("restore image is not supported by current host".to_string()))
+            .with_context(|| "restore image is not supported by current host")
     }?;
 
     info!("create nvram.bin");
@@ -144,7 +145,8 @@ fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<(), Exception> {
                 &model,
                 VZMacAuxiliaryStorageInitializationOptions::empty(),
             )
-        })??;
+        })
+        .map_err(ObjcError::from)??;
     }
 
     info!("create config.json");
@@ -173,12 +175,12 @@ fn random_mac_address() -> String {
     unsafe { VZMACAddress::randomLocallyAdministeredAddress().string().to_string() }
 }
 
-fn load_mac_os_restore_image(ipsw: &Path) -> Result<Retained<VZMacOSRestoreImage>, Exception> {
+fn load_mac_os_restore_image(ipsw: &Path) -> Result<Retained<VZMacOSRestoreImage>> {
     let (tx, rx) = channel();
     unsafe {
         let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, err: *mut NSError| {
             if !err.is_null() {
-                tx.send(Err(Exception::from_ns_error(err))).unwrap();
+                tx.send(Err(ObjcError::from(err))).unwrap();
             } else {
                 let image = Id::from_raw(image).unwrap();
                 tx.send(Ok(image)).unwrap();

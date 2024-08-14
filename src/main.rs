@@ -1,14 +1,15 @@
+use anyhow::Result;
+use clap::CommandFactory;
 use clap::Parser;
 use clap::Subcommand;
+use clap_complete::dynamic::CompleteArgs;
 use command::create::Create;
-use command::generate_zsh_completion::GenerateZshCompletion;
 use command::install::Install;
 use command::ipsw::Ipsw;
 use command::list::List;
 use command::resize::Resize;
 use command::run::Run;
 use command::stop::Stop;
-use util::exception::Exception;
 
 mod command;
 mod config;
@@ -20,7 +21,7 @@ mod vm;
 #[command(about = "manage virtual machines")]
 pub struct Cli {
     #[command(subcommand)]
-    command: Option<Command>,
+    command: Command,
 }
 
 #[derive(Subcommand)]
@@ -43,22 +44,24 @@ pub enum Command {
     Resize(Resize),
     #[command(about = "install macOS")]
     Install(Install),
-    #[command(about = "generate zsh completion")]
-    GenerateZshCompletion(GenerateZshCompletion),
+    #[command(hide = true)]
+    Complete(CompleteArgs),
 }
 
-fn main() -> Result<(), Exception> {
-    tracing_subscriber::fmt().with_thread_ids(true).init();
+fn main() -> Result<()> {
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
     let cli = Cli::parse();
     match cli.command {
-        Some(Command::List(command)) => command.execute(),
-        Some(Command::Create(command)) => command.execute(),
-        Some(Command::Run(command)) => command.execute(),
-        Some(Command::Stop(command)) => command.execute(),
-        Some(Command::Ipsw(command)) => command.execute(),
-        Some(Command::Resize(command)) => command.execute(),
-        Some(Command::Install(command)) => command.execute(),
-        Some(Command::GenerateZshCompletion(command)) => command.execute(),
-        None => panic!("not implemented"),
+        Command::List(command) => command.execute(),
+        Command::Create(command) => command.execute(),
+        Command::Run(command) => command.execute(),
+        Command::Stop(command) => command.execute(),
+        Command::Ipsw(command) => command.execute(),
+        Command::Resize(command) => command.execute(),
+        Command::Install(command) => command.execute(),
+        Command::Complete(command) => {
+            command.complete(&mut Cli::command());
+            Ok(())
+        }
     }
 }

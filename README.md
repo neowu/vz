@@ -8,18 +8,17 @@ only support Apple Silicon and macOS Sonoma
 
 # Usage
 ```
-Usage: vz [COMMAND]
+Usage: vz <COMMAND>
 
 Commands:
-  ls                       list vm status
-  create                   create vm
-  run                      run vm
-  stop                     stop vm
-  ipsw                     get macOS restore image ipsw url
-  resize                   increase disk image size
-  install                  install macOS
-  generate-zsh-completion  generate zsh completion
-  help                     Print this message or the help of the given subcommand(s)
+  ls       list vm status
+  create   create vm
+  run      run vm
+  stop     stop vm
+  ipsw     get macOS restore image ipsw url
+  resize   increase disk image size
+  install  install macOS
+  help     Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -33,10 +32,17 @@ Options:
 
 # Install zsh completion
 ```sh
-vz generate-zsh-completion | sudo tee /usr/local/share/zsh/site-functions/_vz
+vz complete | sudo tee /usr/local/share/zsh/site-functions/_vz
 ```
 
 # Notes
 * refer to swift version, https://github.com/neowu/vz-swift
 * use `arp -an` to find ip, or check `cat /var/db/dhcpd_leases`
 * for local docker host, refer to [setup-docker-host.md](doc/setup-docker-host.md)
+
+# Known issues
+* after macos updating, dhcp could broken due to firewall, either restart again, or manually unblock
+```
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/libexec/bootpd
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblock /usr/libexec/bootpd
+```
