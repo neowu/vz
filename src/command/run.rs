@@ -110,7 +110,9 @@ impl Run {
 
     fn validate(&self) -> Result<()> {
         if let Some(path) = &self.mount {
-            bail!("mount does not exist, path={}", path.to_string_lossy());
+            if !path.exists() {
+                bail!("mount does not exist, path={}", path.to_string_lossy());
+            }
         }
 
         if self.detached && (self.gui || self.mount.is_some()) {
