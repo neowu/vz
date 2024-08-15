@@ -4,9 +4,11 @@ use anyhow::bail;
 use anyhow::Result;
 use clap::Args;
 use clap::ValueHint;
+use clap_complete::dynamic::ArgValueCompleter;
 use log::info;
 use objc2_foundation::MainThreadMarker;
 
+use crate::command::complete_vm_name;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::path::PathExtension;
@@ -15,7 +17,7 @@ use crate::vm::mac_os_installer;
 
 #[derive(Args)]
 pub struct Install {
-    #[arg(help = "vm name")]
+    #[arg(help = "vm name", add = ArgValueCompleter::new(complete_vm_name))]
     name: String,
 
     #[arg(long, help = "macOS restore image file, e.g. --ipsw=UniversalMac_14.5_23F79_Restore.ipsw", value_hint = ValueHint::FilePath)]

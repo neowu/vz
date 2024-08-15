@@ -40,7 +40,7 @@ use signal_hook::consts::signal::SIGQUIT;
 use signal_hook::consts::signal::SIGTERM;
 use signal_hook::iterator::Signals;
 
-use super::complete_vm_name;
+use crate::command::complete_vm_name;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::path::PathExtension;

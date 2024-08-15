@@ -10,7 +10,7 @@ use clap_complete::dynamic::ArgValueCompleter;
 use log::error;
 use log::info;
 
-use super::complete_vm_name;
+use crate::command::complete_vm_name;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
 
