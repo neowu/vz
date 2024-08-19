@@ -11,5 +11,8 @@ pub mod run;
 pub mod stop;
 
 fn complete_vm_name() -> Vec<CompletionCandidate> {
-    vm_dir::vm_dirs().into_iter().map(|dir| CompletionCandidate::new(dir.name())).collect()
+    vm_dir::vm_dirs()
+        .into_iter()
+        .map(|dir| CompletionCandidate::new(dir.name()).help(Some("vm".into())))
+        .collect()
 }

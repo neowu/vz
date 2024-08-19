@@ -11,14 +11,15 @@ only support Apple Silicon and macOS Sonoma
 Usage: vz <COMMAND>
 
 Commands:
-  ls       list vm status
-  create   create vm
-  run      run vm
-  stop     stop vm
-  ipsw     get macOS restore image ipsw url
-  resize   increase disk image size
-  install  install macOS
-  help     Print this message or the help of the given subcommand(s)
+  ls          list vm status
+  create      create vm
+  run         run vm
+  stop        stop vm
+  ipsw        get macOS restore image ipsw url
+  resize      increase disk image size
+  install     install macOS
+  completion  generate shell completion
+  help        Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -30,9 +31,12 @@ Options:
 ./build/build.sh
 ```
 
-# Install zsh completion
+# Install shell completion
 ```sh
-vz complete | sudo tee /usr/local/share/zsh/site-functions/_vz
+# zsh
+vz completion | sudo tee /usr/local/share/zsh/site-functions/_vz
+# fish
+vz completion | tee ~/.config/fish/completions/vz.fish
 ```
 
 # Notes
