@@ -22,7 +22,9 @@ impl Completion {
         // clap dynamic completion is incomplete, better have shell native file completion
         if matches!(shell, Shell::Fish) {
             for subcommand in ["run", "stop", "resize", "install"] {
-                println!(r#"complete -c {CARGO_PKG_NAME} -x -n "__fish_seen_subcommand_from {subcommand}" -a "({CARGO_PKG_NAME} complete vm_name)""#);
+                println!(
+                    r#"complete -c {CARGO_PKG_NAME} -x -n "__fish_seen_subcommand_from {subcommand}" -a "({CARGO_PKG_NAME} _complete vm_name)""#
+                );
             }
         }
         Ok(())

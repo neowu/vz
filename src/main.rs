@@ -46,7 +46,7 @@ pub enum Command {
     Install(Install),
     #[command(about = "generate shell completion")]
     Completion(Completion),
-    #[command(hide = true)]
+    #[command(name = "_complete", hide = true)]
     Complete(Complete),
 }
 
