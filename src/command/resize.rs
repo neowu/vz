@@ -1,18 +1,16 @@
 use anyhow::bail;
 use anyhow::Result;
 use clap::Args;
-use clap_complete::dynamic::ArgValueCompleter;
 use log::info;
 
-use crate::command::complete_vm_name;
 use crate::config::vm_dir;
 
 #[derive(Args)]
 pub struct Resize {
-    #[arg(help = "vm name", add = ArgValueCompleter::new(complete_vm_name))]
+    #[arg(help = "vm name", required = true)]
     name: String,
 
-    #[arg(long, help = "disk size in gb")]
+    #[arg(long, help = "disk size in gb", required = true)]
     disk_size: u64,
 }
 

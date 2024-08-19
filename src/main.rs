@@ -1,13 +1,8 @@
-use std::io;
-
-use anyhow::Context;
 use anyhow::Result;
-use clap::CommandFactory;
 use clap::Parser;
 use clap::Subcommand;
-use clap_complete::dynamic::CompleteArgs;
-use clap_complete::generate;
-use clap_complete::Shell;
+use command::complete::Complete;
+use command::completion::Completion;
 use command::create::Create;
 use command::install::Install;
 use command::ipsw::Ipsw;
@@ -50,9 +45,9 @@ pub enum Command {
     #[command(about = "install macOS")]
     Install(Install),
     #[command(about = "generate shell completion")]
-    Completion,
+    Completion(Completion),
     #[command(hide = true)]
-    Complete(CompleteArgs),
+    Complete(Complete),
 }
 
 fn main() -> Result<()> {
@@ -66,24 +61,7 @@ fn main() -> Result<()> {
         Command::Ipsw(command) => command.execute(),
         Command::Resize(command) => command.execute(),
         Command::Install(command) => command.execute(),
-        Command::Completion => {
-            const CARGO_PKG_NAME: &str = env!("CARGO_PKG_NAME");
-            let shell = Shell::from_env().context("unknown shell")?;
-            generate(shell, &mut Cli::command(), CARGO_PKG_NAME, &mut io::stdout());
-            // only support dynmaic vm name completion for fish
-            // clap dynamic completion is incomplete, better have shell native file completion
-            if matches!(shell, Shell::Fish) {
-                for subcommand in ["run", "stop", "install"] {
-                    println!(
-                        r#"complete -c {CARGO_PKG_NAME} -x -n "__fish_seen_subcommand_from {subcommand}" -a "({CARGO_PKG_NAME} complete fish -- (commandline --current-process --tokenize --cut-at-cursor) (commandline --current-token))""#
-                    );
-                }
-            }
-            Ok(())
-        }
-        Command::Complete(command) => {
-            command.complete(&mut Cli::command());
-            Ok(())
-        }
+        Command::Complete(command) => command.execute(),
+        Command::Completion(command) => command.execute(),
     }
 }

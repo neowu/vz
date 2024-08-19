@@ -6,17 +6,15 @@ use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use clap::Args;
-use clap_complete::dynamic::ArgValueCompleter;
 use log::error;
 use log::info;
 
-use crate::command::complete_vm_name;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
 
 #[derive(Args)]
 pub struct Stop {
-    #[arg(help = "vm name", add = ArgValueCompleter::new(complete_vm_name))]
+    #[arg(help = "vm name", required = true)]
     name: String,
 }
 

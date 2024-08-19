@@ -10,7 +10,6 @@ use anyhow::bail;
 use anyhow::Result;
 use clap::Args;
 use clap::ValueHint;
-use clap_complete::dynamic::ArgValueCompleter;
 use dispatch::ffi::dispatch_main;
 use log::info;
 use objc2::rc::Retained;
@@ -40,7 +39,6 @@ use signal_hook::consts::signal::SIGQUIT;
 use signal_hook::consts::signal::SIGTERM;
 use signal_hook::iterator::Signals;
 
-use crate::command::complete_vm_name;
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
 use crate::util::path::PathExtension;
@@ -52,7 +50,7 @@ use crate::vm::vm_delegate::VmDelegate;
 
 #[derive(Args)]
 pub struct Run {
-    #[arg(help = "vm name", add = ArgValueCompleter::new(complete_vm_name))]
+    #[arg(help = "vm name", required = true)]
     name: String,
     #[arg(long, help = "open UI window", default_value_t = false)]
     gui: bool,

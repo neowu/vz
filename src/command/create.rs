@@ -36,7 +36,7 @@ use crate::vm::mac_os;
 
 #[derive(Args)]
 pub struct Create {
-    #[arg(help = "vm name")]
+    #[arg(help = "vm name", required = true)]
     name: String,
 
     #[arg(long, help = "create a linux or macOS vm", default_value = "linux")]

@@ -33,10 +33,10 @@ Options:
 
 # Install shell completion
 ```sh
-# zsh
-vz completion | sudo tee /usr/local/share/zsh/site-functions/_vz
 # fish
 vz completion | tee ~/.config/fish/completions/vz.fish
+# zsh
+vz completion | sudo tee /usr/local/share/zsh/site-functions/_vz
 ```
 
 # Notes
