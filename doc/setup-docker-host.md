@@ -4,7 +4,7 @@ alpine doesn't support rosetta, use debian instead if you need rosetta support
 
 # create alpine vm
 1. download alpine virt iso `https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/aarch64/alpine-virt-3.18.4-aarch64.iso`
-2. vz create alpine --disk-size=500
+2. vz create alpine --cpu=12 --ram=4 --disk=500
 3. edit ~/.vm/alpine/config.json to add home share
 ```
 {
@@ -17,7 +17,7 @@ alpine doesn't support rosetta, use debian instead if you need rosetta support
   }
 }
 ```
-4. vz run alpine --gui --mount
+4. vz run alpine --gui --mount alpine-virt-3.18.4-aarch64.iso
 
 # setup thru gui / root
 ```sh
