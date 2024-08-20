@@ -7,10 +7,10 @@ use crate::config::vm_dir;
 
 #[derive(Args)]
 pub struct Resize {
-    #[arg(help = "vm name", required = true)]
+    #[arg(help = "vm name")]
     name: String,
 
-    #[arg(long, help = "disk size in gb", required = true)]
+    #[arg(long, help = "disk size in gb")]
     disk_size: u64,
 }
 

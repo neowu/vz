@@ -50,7 +50,7 @@ use crate::vm::vm_delegate::VmDelegate;
 
 #[derive(Args)]
 pub struct Run {
-    #[arg(help = "vm name", required = true)]
+    #[arg(help = "vm name")]
     name: String,
     #[arg(long, help = "open UI window", default_value_t = false)]
     gui: bool,

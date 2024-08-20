@@ -5,7 +5,7 @@ use crate::config::vm_dir;
 
 #[derive(Args)]
 pub struct Complete {
-    #[arg(required = true)]
+    #[arg()]
     name: String,
 }
 

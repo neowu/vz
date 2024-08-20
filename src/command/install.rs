@@ -15,10 +15,10 @@ use crate::vm::mac_os_installer;
 
 #[derive(Args)]
 pub struct Install {
-    #[arg(help = "vm name", required = true)]
+    #[arg(help = "vm name")]
     name: String,
 
-    #[arg(long, help = "macOS restore image file, e.g. --ipsw=UniversalMac_14.5_23F79_Restore.ipsw", required = true, value_hint = ValueHint::FilePath)]
+    #[arg(long, help = "macOS restore image file, e.g. --ipsw=UniversalMac_14.5_23F79_Restore.ipsw", value_hint = ValueHint::FilePath)]
     ipsw: PathBuf,
 }
 

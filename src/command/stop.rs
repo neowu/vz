@@ -14,7 +14,7 @@ use crate::config::vm_dir::VmDir;
 
 #[derive(Args)]
 pub struct Stop {
-    #[arg(help = "vm name", required = true)]
+    #[arg(help = "vm name")]
     name: String,
 }
 
