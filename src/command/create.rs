@@ -42,6 +42,12 @@ pub struct Create {
     #[arg(long, help = "create a linux or macOS vm", default_value = "linux")]
     os: Os,
 
+    #[arg(long, help = "cpu count", default_value_t = 1)]
+    cpu: usize,
+
+    #[arg(long, help = "ram size in gb", default_value_t = 1)]
+    ram: u64,
+
     #[arg(long, help = "disk size in gb", default_value_t = 50)]
     disk_size: u64,
 
@@ -63,8 +69,8 @@ impl Create {
         temp_dir.resize(self.disk_size * 1_000_000_000)?;
 
         match self.os {
-            Os::Linux => create_linux(&temp_dir)?,
-            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path())?,
+            Os::Linux => create_linux(&temp_dir, self.cpu, self.ram)?,
+            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path(), self.cpu, self.ram)?,
         }
 
         let dir = vm_dir::vm_dir(&self.name);
@@ -90,7 +96,7 @@ impl Create {
     }
 }
 
-fn create_linux(dir: &VmDir) -> Result<()> {
+fn create_linux(dir: &VmDir, cpu: usize, ram: u64) -> Result<()> {
     info!("create nvram.bin");
     unsafe {
         catch(|| {
@@ -106,8 +112,8 @@ fn create_linux(dir: &VmDir) -> Result<()> {
     info!("create config.json");
     let config = VmConfig {
         os: Os::Linux,
-        cpu: 1,
-        memory: 1024 * 1024 * 1024,
+        cpu,
+        memory: ram * 1024 * 1024 * 1024,
         mac_address: random_mac_address(),
         sharing: HashMap::new(),
         rosetta: Some(false),
@@ -119,7 +125,7 @@ fn create_linux(dir: &VmDir) -> Result<()> {
     Ok(())
 }
 
-fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<()> {
+fn create_macos(dir: &VmDir, ipsw: &Path, cpu: usize, ram: u64) -> Result<()> {
     let image = load_mac_os_restore_image(ipsw)?;
 
     let requirements = unsafe {
@@ -158,8 +164,8 @@ fn create_macos(dir: &VmDir, ipsw: &Path) -> Result<()> {
     };
     let config = VmConfig {
         os: Os::MacOs,
-        cpu: max(4, unsafe { requirements.minimumSupportedCPUCount() }),
-        memory: max(8 * 1024 * 1024 * 1024, unsafe { requirements.minimumSupportedMemorySize() }),
+        cpu: max(cpu, unsafe { requirements.minimumSupportedCPUCount() }),
+        memory: max(ram * 1024 * 1024 * 1024, unsafe { requirements.minimumSupportedMemorySize() }),
         mac_address: random_mac_address(),
         sharing: HashMap::new(),
         rosetta: None,
