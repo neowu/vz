@@ -43,7 +43,7 @@ impl List {
                         metadata.blocks() as f32 * 512.0 / 1_000_000_000.0,
                         metadata.len() as f32 / 1_000_000_000.0
                     );
-                    let ip = ip_addrs.get(&config.mac_address).map(String::as_str).unwrap_or("unknown");
+                    let ip = ip_addrs.get(&config.mac_address).map(String::as_str).unwrap_or("-");
                     let status = if dir.pid().is_some() { "running" } else { "stopped" };
                     println!("{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}{:<16}", name, os, cpu, memory, disk, ip, status)
                 }
