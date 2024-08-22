@@ -23,8 +23,8 @@ impl List {
         let ip_addrs = ip_addrs()?;
 
         println!(
-            "{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}{:<16}",
-            "name", "os", "cpu", "memory", "disk", "ip", "status"
+            "{:<16}{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}",
+            "name", "status", "os", "cpu", "memory", "disk", "ip"
         );
         for entry in fs::read_dir(home_dir)? {
             let path = entry?.path();
@@ -45,7 +45,7 @@ impl List {
                     );
                     let ip = ip_addrs.get(&config.mac_address).map(String::as_str).unwrap_or("-");
                     let status = if dir.pid().is_some() { "running" } else { "stopped" };
-                    println!("{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}{:<16}", name, os, cpu, memory, disk, ip, status)
+                    println!("{:<16}{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}", name, status, os, cpu, memory, disk, ip)
                 }
             }
         }

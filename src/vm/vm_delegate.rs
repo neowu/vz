@@ -24,8 +24,7 @@ declare_class!(
         const NAME: &'static str = "VmDelegate";
     }
 
-    impl DeclaredClass for VmDelegate {
-    }
+    impl DeclaredClass for VmDelegate {}
 
     unsafe impl NSObjectProtocol for VmDelegate {}
 

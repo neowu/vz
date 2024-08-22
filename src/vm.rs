@@ -18,9 +18,9 @@ pub mod mac_os;
 pub mod mac_os_installer;
 pub mod vm_delegate;
 
-pub fn start_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+pub fn start_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
-        info!("start vm");
+        info!("start vm, name={name}, pid={}", process::id());
         let vm = vm.get(marker);
         let block = &StackBlock::new(|err: *mut NSError| {
             if err.is_null() {
@@ -36,9 +36,9 @@ pub fn start_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     });
 }
 
-pub fn stop_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+pub fn stop_vm(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
-        info!("stop vm");
+        info!("stop vm, name={name}, pid={}", process::id());
         if request_stop_vm(vm.get(marker)) {
             Queue::main().exec_after(Duration::from_secs(15), || force_stop_vm(vm));
         } else {

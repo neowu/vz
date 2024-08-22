@@ -1,6 +1,7 @@
 use std::env::current_exe;
 use std::fs::File;
 use std::path::PathBuf;
+use std::process;
 use std::process::Command;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -90,9 +91,9 @@ impl Run {
             vm.setDelegate(Some(&proto));
         }
         let vm = Arc::new(MainThreadBound::new(vm, marker));
-        vm::start_vm(Arc::clone(&vm));
+        vm::start_vm(name, Arc::clone(&vm));
 
-        handle_signal(Arc::clone(&vm))?;
+        handle_signal(name.to_string(), Arc::clone(&vm))?;
 
         if self.gui {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
@@ -139,14 +140,14 @@ fn run_in_background(name: &str) -> Result<()> {
     Ok(())
 }
 
-fn handle_signal(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<()> {
+fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<()> {
     let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
     thread::spawn(move || {
         let signal = signals.forever().next().unwrap();
-        info!("recived signal, signal={signal}");
+        info!("recived signal, signal={signal}, name={name}, pid={}", process::id());
         match signal {
             SIGTERM | SIGINT | SIGQUIT => {
-                vm::stop_vm(vm);
+                vm::stop_vm(name, vm);
             }
             _ => unreachable!(),
         }
@@ -190,7 +191,7 @@ fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retaine
         window.contentView().unwrap().addSubview(&machine_view);
     }
 
-    let proto: Retained<ProtocolObject<dyn NSWindowDelegate>> = ProtocolObject::from_retained(GuiDelegate::new(marker, vm));
+    let proto: Retained<ProtocolObject<dyn NSWindowDelegate>> = ProtocolObject::from_retained(GuiDelegate::new(marker, vm, name));
     window.setDelegate(Some(&proto));
 
     window.makeKeyAndOrderFront(Option::None);
