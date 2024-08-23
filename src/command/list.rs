@@ -68,12 +68,21 @@ fn parse_arp_output(output: &str) -> HashMap<String, String> {
     for line in output.lines().skip(1) {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 2 {
-            let mac = parts[1].to_string();
+            let mac = parse_mac(parts[1]);
             let ip = parts[0].to_string();
             ip_addrs.insert(mac, ip);
         }
     }
     ip_addrs
+}
+
+// in the arp output, the mac address 'fa:5d:0b:89:61:16' is displayed as 'fa:5d:b:89:61:16', with the leading zeroes removed.
+fn parse_mac(mac: &str) -> String {
+    let parts: Vec<String> = mac
+        .split(':')
+        .map(|part| if part.len() == 1 { format!("0{part}") } else { part.to_string() })
+        .collect();
+    parts.join(":")
 }
 
 #[cfg(test)]
@@ -86,8 +95,10 @@ mod tests {
             r#"Neighbor                Linklayer Address Expire(O) Expire(I)          Netif Refs Prbs
             10.11.101.76            f0:18:98:3c:4a:cc expired   expired        en0    1
             192.168.64.3            f6:db:b3:ec:f9:3f 2m42s     2m34s     bridge10    1
+            192.168.64.8            fa:5d:b:89:61:16  2m33s     1m21s     bridge10    1
             224.0.0.251             1:0:5e:0:0:fb     (none)    (none)         en0"#,
         );
-        assert_eq!("192.168.64.3", ip_addrs.get("f6:db:b3:ec:f9:3f").unwrap())
+        assert_eq!("192.168.64.3", ip_addrs.get("f6:db:b3:ec:f9:3f").unwrap());
+        assert_eq!("192.168.64.8", ip_addrs.get("fa:5d:0b:89:61:16").unwrap());
     }
 }
