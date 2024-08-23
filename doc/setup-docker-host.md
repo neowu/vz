@@ -2,11 +2,14 @@
 
 alpine doesn't support rosetta, use debian instead if you need rosetta support
 
-# create alpine vm
-1. download alpine virt iso `https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/aarch64/alpine-virt-3.18.4-aarch64.iso`
-2. vz create alpine --cpu=12 --ram=4 --disk=500
-3. edit ~/.vm/alpine/config.json to add home share
+### create alpine vm
+1. download alpine virt iso `https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/aarch64/alpine-virt-3.20.0-aarch64.iso`
+2. create vm
+```sh
+vz create alpine --cpu=12 --ram=4 --disk=500
 ```
+3. edit `~/.vm/alpine/config.json` to add home share
+```json
 {
   "os": "linux",
   "cpu": 12,
@@ -17,9 +20,12 @@ alpine doesn't support rosetta, use debian instead if you need rosetta support
   }
 }
 ```
-4. vz run alpine --gui --mount alpine-virt-3.18.4-aarch64.iso
+4. run vm
+```sh
+vz run alpine --gui --mount alpine-virt-3.20.0-aarch64.iso
+```
 
-# setup thru gui / root
+### setup thru gui / root
 ```sh
 setup-alpine -q
 setup-disk
@@ -32,14 +38,15 @@ apk add doas-sudo-shim
 echo 'permit nopass :wheel' > /etc/doas.d/doas.conf
 ```
 
-# setup locally
-1. edit `/etc/hosts` to add alpine record
+### setup locally (from macos)
+1. edit `/etc/hosts` to add alpine record (use `vz ls` to show ip)
 ```sh
 ssh-copy-id alpine
 
 docker context create vz --docker host=ssh://[yourname]@alpine
 ```
-edit `~/.ssh/config` to add following (for multiplex ssh connection, e.g. VSCode devcontainer runs multiple docker commands simultaneously)
+
+2. edit `~/.ssh/config` to add following (for multiplex ssh connection, e.g. VSCode devcontainer runs multiple docker commands simultaneously)
 ```
 Host *
   IdentityFile ~/.ssh/id_ed25519
@@ -49,19 +56,19 @@ Host *
   ControlPersist 600
 ```
 
-# setup alpine
+### setup alpine
 ```sh
-sudo sed -i -e 's/GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' /etc/default/grub
+sudo sed -i -e 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' /etc/default/grub
 sudo grub-mkconfig -o /boot/grub/grub.cfg
 
 sudo mkdir /Users
 # mount -t virtiofs com.apple.virtio-fs.automount /Users
 sudo sed -i -e '$acom.apple.virtio-fs.automount /Users virtiofs rw 0 2' /etc/fstab
 
-sudo sed -i -e 's/.MaxSessions \d*/MaxSessions 256/' -e 's/.MaxStartups .*/MaxStartups 128:30:256/' /etc/ssh/sshd_config
+sudo sed -i -e 's/^.MaxSessions \d*/MaxSessions 256/' -e 's/^.MaxStartups .*/MaxStartups 128:30:256/' /etc/ssh/sshd_config
 sudo service sshd restart
 
-# power off
+# support `power off`
 echo 'gpio-pl061' | sudo tee /etc/modules-load.d/gpio-pl061.conf
 sudo modprobe gpio-pl061
 
@@ -73,10 +80,13 @@ sudo rc-update add docker default
 sudo service docker start
 ```
 
-# resize disk if needed in future
-1. vz resize alpine --disk-size [newSize]
-2. expand disk in alpine
+### resize disk if needed going forward
+1. run
+```sh
+vz resize alpine --disk-size [newSize]
 ```
+2. expand disk in alpine
+```sh
 apk add cfdisk e2fsprogs-extra
 cfdisk
 resize2fs /dev/vda3
