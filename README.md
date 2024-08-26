@@ -40,6 +40,7 @@ vz completion | sudo tee /usr/local/share/zsh/site-functions/_vz
 ```
 
 # Notes
+* all data is stored at `~/.local/share/vz`
 * refer to swift version, https://github.com/neowu/vz-swift
 * use `vz ls` to find ip, or check `cat /var/db/dhcpd_leases`
 * for local docker host, refer to [setup-docker-host.md](doc/setup-docker-host.md)

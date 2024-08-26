@@ -73,7 +73,7 @@ impl VmDir {
 }
 
 pub fn home_dir() -> PathBuf {
-    PathBuf::from("~/.vm").to_absolute_path()
+    PathBuf::from("~/.local/share/vz").to_absolute_path()
 }
 
 pub fn vm_dir(name: &str) -> VmDir {
