@@ -37,13 +37,13 @@ declare_class!(
 
         #[method(virtualMachine:didStopWithError:)]
         fn virtual_machine_did_stop_with_error(&self, _: &VZVirtualMachine, err: &NSError) {
-            error!("guest has stopped the vm due to error, error={}", err.localizedDescription());
+            error!("guest has stopped the vm due to error, err={}", err.localizedDescription());
             process::exit(1);
         }
 
         #[method(virtualMachine:networkDevice:attachmentWasDisconnectedWithError:)]
         fn virtual_machine_network_device_attachment_was_disconnected_with_error(&self, _: &VZVirtualMachine, network_device: &VZNetworkDevice, err: &NSError) {
-            error!("vm network disconnected, device={network_device:?}, error={}", err.localizedDescription());
+            error!("vm network disconnected, device={network_device:?}, err={}", err.localizedDescription());
             process::exit(1);
         }
     }

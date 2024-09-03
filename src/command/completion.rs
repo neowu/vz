@@ -1,7 +1,5 @@
 use std::io;
 
-use anyhow::Context;
-use anyhow::Result;
 use clap::Args;
 use clap::CommandFactory;
 use clap_complete::generate;
@@ -15,8 +13,8 @@ pub struct Completion;
 const CARGO_PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 impl Completion {
-    pub fn execute(&self) -> Result<()> {
-        let shell = Shell::from_env().context("unknown shell")?;
+    pub fn execute(&self) {
+        let shell = Shell::from_env().expect("unknown shell");
         generate(shell, &mut Cli::command(), CARGO_PKG_NAME, &mut io::stdout());
         // only support dynmaic vm name completion for fish
         // clap dynamic completion is incomplete, better have shell native file completion
@@ -27,6 +25,5 @@ impl Completion {
                 );
             }
         }
-        Ok(())
     }
 }

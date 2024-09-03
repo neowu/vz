@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 
-use anyhow::bail;
-use anyhow::Result;
 use clap::Args;
 use clap::ValueHint;
 use log::info;
@@ -23,32 +21,29 @@ pub struct Install {
 }
 
 impl Install {
-    pub fn execute(&self) -> Result<()> {
-        self.validate()?;
+    pub fn execute(&self) {
+        self.validate();
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            bail!("vm not initialized, name={name}");
+            panic!("vm not initialized, name={name}");
         }
-        let config = dir.load_config()?;
+        let config = dir.load_config();
         if !matches!(config.os, Os::MacOs) {
-            bail!("install requires macOS guest");
+            panic!("install requires macOS guest");
         }
-        let _lock = dir.lock()?;
+        let _lock = dir.lock();
 
         info!("instal macOS");
         let marker = MainThreadMarker::new().unwrap();
-        let vm = mac_os::create_vm(&dir, &config, marker)?;
-        mac_os_installer::install(vm, &self.ipsw.to_absolute_path(), marker)?;
-
-        Ok(())
+        let vm = mac_os::create_vm(&dir, &config, marker);
+        mac_os_installer::install(vm, &self.ipsw.to_absolute_path(), marker);
     }
 
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) {
         if !self.ipsw.exists() {
-            bail!("ipsw does not exist, path={}", self.ipsw.to_string_lossy());
+            panic!("ipsw does not exist, path={}", self.ipsw.to_string_lossy());
         }
-        Ok(())
     }
 }

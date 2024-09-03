@@ -5,14 +5,10 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::mpsc::channel;
 
-use anyhow::bail;
-use anyhow::Context;
-use anyhow::Result;
 use block2::StackBlock;
 use clap::Args;
 use clap::ValueHint;
 use log::info;
-use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
@@ -30,7 +26,6 @@ use crate::config::vm_config::Os;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
-use crate::util::objc::ObjcError;
 use crate::util::path::PathExtension;
 use crate::vm::mac_os;
 
@@ -56,57 +51,52 @@ pub struct Create {
 }
 
 impl Create {
-    pub fn execute(&self) -> Result<()> {
-        self.validate()?;
+    pub fn execute(&self) {
+        self.validate();
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if dir.initialized() {
-            bail!("vm already exists, name={name}");
+            panic!("vm already exists, name={name}");
         }
 
-        let temp_dir = vm_dir::create_temp_vm_dir()?;
-        temp_dir.resize(self.disk * 1_000_000_000)?;
+        let temp_dir = vm_dir::create_temp_vm_dir();
+        temp_dir.resize(self.disk * 1_000_000_000);
 
         match self.os {
-            Os::Linux => create_linux(&temp_dir, self.cpu, self.memory)?,
-            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path(), self.cpu, self.memory)?,
+            Os::Linux => create_linux(&temp_dir, self.cpu, self.memory),
+            Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path(), self.cpu, self.memory),
         }
 
         let dir = vm_dir::vm_dir(&self.name);
         info!("move vm dir, from={}, to={}", temp_dir.dir.to_string_lossy(), dir.dir.to_string_lossy());
-        fs::rename(&temp_dir.dir, &dir.dir)?;
+        fs::rename(&temp_dir.dir, &dir.dir).unwrap_or_else(|err| panic!("failed to rename dir, err={err}"));
         info!("vm created, name={}, config={}", self.name, dir.config_path.to_string_lossy());
-
-        Ok(())
     }
 
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self) {
         if let Os::MacOs = self.os {
             match &self.ipsw {
                 Some(path) => {
                     if !path.exists() {
-                        bail!("ipsw does not exist, path={}", path.to_string_lossy());
+                        panic!("ipsw does not exist, path={}", path.to_string_lossy());
                     }
                 }
-                None => bail!("ipsw is required for macOS vm"),
+                None => panic!("ipsw is required for macOS vm"),
             }
         };
-        Ok(())
     }
 }
 
-fn create_linux(dir: &VmDir, cpu: usize, memory: u64) -> Result<()> {
+fn create_linux(dir: &VmDir, cpu: usize, memory: u64) {
     info!("create nvram.bin");
     unsafe {
-        catch(|| {
-            VZEFIVariableStore::initCreatingVariableStoreAtURL_options_error(
-                VZEFIVariableStore::alloc(),
-                &dir.nvram_path.to_ns_url(),
-                VZEFIVariableStoreInitializationOptions::empty(),
-            )
-        })
-        .map_err(ObjcError::from)??;
+        VZEFIVariableStore::initCreatingVariableStoreAtURL_options_error(
+            VZEFIVariableStore::alloc(),
+            &dir.nvram_path.to_ns_url(),
+            VZEFIVariableStoreInitializationOptions::empty(),
+        )
+        .unwrap_or_else(|err| panic!("failed to create nvram.bin, err={}", err.localizedDescription()));
     }
 
     info!("create config.json");
@@ -120,19 +110,17 @@ fn create_linux(dir: &VmDir, cpu: usize, memory: u64) -> Result<()> {
         hardware_model: None,
         machine_identifier: None,
     };
-    dir.save_config(&config)?;
-
-    Ok(())
+    dir.save_config(&config);
 }
 
-fn create_macos(dir: &VmDir, ipsw: &Path, cpu: usize, memory: u64) -> Result<()> {
-    let image = load_mac_os_restore_image(ipsw)?;
+fn create_macos(dir: &VmDir, ipsw: &Path, cpu: usize, memory: u64) {
+    let image = load_mac_os_restore_image(ipsw);
 
     let requirements = unsafe {
         image
             .mostFeaturefulSupportedConfiguration()
-            .with_context(|| "restore image is not supported by current host")
-    }?;
+            .expect("restore image is not supported by current host")
+    };
 
     info!("create nvram.bin");
     let hardware_model = unsafe {
@@ -143,16 +131,14 @@ fn create_macos(dir: &VmDir, ipsw: &Path, cpu: usize, memory: u64) -> Result<()>
             .to_string()
     };
     unsafe {
-        catch(|| {
-            let model = mac_os::hardware_model(&hardware_model);
-            VZMacAuxiliaryStorage::initCreatingStorageAtURL_hardwareModel_options_error(
-                VZMacAuxiliaryStorage::alloc(),
-                &dir.nvram_path.to_ns_url(),
-                &model,
-                VZMacAuxiliaryStorageInitializationOptions::empty(),
-            )
-        })
-        .map_err(ObjcError::from)??;
+        let model = mac_os::hardware_model(&hardware_model);
+        VZMacAuxiliaryStorage::initCreatingStorageAtURL_hardwareModel_options_error(
+            VZMacAuxiliaryStorage::alloc(),
+            &dir.nvram_path.to_ns_url(),
+            &model,
+            VZMacAuxiliaryStorageInitializationOptions::empty(),
+        )
+        .unwrap_or_else(|err| panic!("failed to create nvram.bin, err={}", err.localizedDescription()));
     }
 
     info!("create config.json");
@@ -172,28 +158,25 @@ fn create_macos(dir: &VmDir, ipsw: &Path, cpu: usize, memory: u64) -> Result<()>
         hardware_model: Some(hardware_model),
         machine_identifier: Some(machine_identifier),
     };
-    dir.save_config(&config)?;
-
-    Ok(())
+    dir.save_config(&config);
 }
 
 fn random_mac_address() -> String {
     unsafe { VZMACAddress::randomLocallyAdministeredAddress().string().to_string() }
 }
 
-fn load_mac_os_restore_image(ipsw: &Path) -> Result<Retained<VZMacOSRestoreImage>> {
+fn load_mac_os_restore_image(ipsw: &Path) -> Retained<VZMacOSRestoreImage> {
     let (tx, rx) = channel();
     unsafe {
         let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, err: *mut NSError| {
             if !err.is_null() {
-                tx.send(Err(ObjcError::from(err))).unwrap();
+                panic!("failed to load image, err={}", (*err).localizedDescription());
             } else {
                 let image = Id::from_raw(image).unwrap();
-                tx.send(Ok(image)).unwrap();
+                tx.send(image).unwrap();
             }
         });
         VZMacOSRestoreImage::loadFileURL_completionHandler(&ipsw.to_ns_url(), &block);
     };
-    let image = rx.recv()??;
-    Ok(image)
+    rx.recv().unwrap()
 }

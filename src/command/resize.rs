@@ -1,5 +1,3 @@
-use anyhow::bail;
-use anyhow::Result;
 use clap::Args;
 use log::info;
 
@@ -15,20 +13,23 @@ pub struct Resize {
 }
 
 impl Resize {
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self) {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            bail!("vm not initialized, name={name}");
+            panic!("vm not initialized, name={name}");
         }
 
-        let size = dir.disk_path.metadata()?.len();
+        let size = dir
+            .disk_path
+            .metadata()
+            .unwrap_or_else(|err| panic!("failed to get metadata, err={err}"))
+            .len();
         if size >= self.disk * 1_000_000_000 {
-            bail!("disk size must larger than current, current={size}");
+            panic!("disk size must larger than current, current={size}");
         }
 
         info!("increase disk size, file={}, size={}G", dir.disk_path.to_string_lossy(), self.disk);
-        dir.resize(self.disk * 1_000_000_000)?;
-        Ok(())
+        dir.resize(self.disk * 1_000_000_000);
     }
 }

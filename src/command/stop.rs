@@ -2,9 +2,6 @@ use std::process;
 use std::thread::sleep;
 use std::time::Duration;
 
-use anyhow::bail;
-use anyhow::Context;
-use anyhow::Result;
 use clap::Args;
 use log::error;
 use log::info;
@@ -19,14 +16,14 @@ pub struct Stop {
 }
 
 impl Stop {
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self) {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            bail!("vm not initialized, name={name}");
+            panic!("vm not initialized, name={name}");
         }
 
-        let pid = dir.pid().with_context(|| format!("vm not running, name={name}"))?;
+        let pid = dir.pid().unwrap_or_else(|| panic!("vm not running, name={name}"));
         info!("stop vm, name={name}, pid={pid}");
         unsafe {
             libc::kill(pid, libc::SIGINT);

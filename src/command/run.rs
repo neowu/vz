@@ -7,8 +7,6 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::thread;
 
-use anyhow::bail;
-use anyhow::Result;
 use clap::Args;
 use clap::ValueHint;
 use dispatch::ffi::dispatch_main;
@@ -62,29 +60,29 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute(&self) -> Result<()> {
-        self.validate()?;
+    pub fn execute(&self) {
+        self.validate();
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
         if !dir.initialized() {
-            bail!("vm not initialized, name={name}");
+            panic!("vm not initialized, name={name}");
         }
 
         if self.detached {
             return run_in_background(name);
         }
 
-        let config = dir.load_config()?;
+        let config = dir.load_config();
 
         // must after vm_dir.load_config(), it cloese config file and release all fd
         // must hold lock reference, otherwise fd will be deallocated, and release all locks
-        let _lock = dir.lock()?;
+        let _lock = dir.lock();
 
         let marker = MainThreadMarker::new().unwrap();
         let vm = match config.os {
-            Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref())?,
-            Os::MacOs => mac_os::create_vm(&dir, &config, marker)?,
+            Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref()),
+            Os::MacOs => mac_os::create_vm(&dir, &config, marker),
         };
         let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> = ProtocolObject::from_retained(VmDelegate::new());
         unsafe {
@@ -93,7 +91,7 @@ impl Run {
         let vm = Arc::new(MainThreadBound::new(vm, marker));
         vm::start_vm(name, Arc::clone(&vm));
 
-        handle_signal(name.to_string(), Arc::clone(&vm))?;
+        handle_signal(name.to_string(), Arc::clone(&vm));
 
         if self.gui {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
@@ -103,45 +101,50 @@ impl Run {
                 dispatch_main();
             }
         }
-
-        Ok(())
     }
 
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) {
         if let Some(path) = &self.mount {
             if !path.exists() {
-                bail!("mount does not exist, path={}", path.to_string_lossy());
+                panic!("mount does not exist, path={}", path.to_string_lossy());
             }
         }
 
         if self.detached && (self.gui || self.mount.is_some()) {
-            bail!("-d must not be used with --gui and --mount");
+            panic!("-d must not be used with --gui and --mount");
         }
-
-        Ok(())
     }
 }
 
-fn run_in_background(name: &str) -> Result<()> {
+fn run_in_background(name: &str) {
     let log_path = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
 
     if let Ok(metadata) = log_path.metadata() {
         if !metadata.is_file() || metadata.permissions().readonly() {
-            bail!("log file is not writable, path={}", log_path.to_string_lossy());
+            panic!("log file is not writable, path={}", log_path.to_string_lossy());
         }
     }
 
-    let mut command = Command::new(current_exe()?);
+    let mut command = Command::new(current_exe().unwrap_or_else(|err| panic!("failed to get current command path, err={err}")));
     command.args(["run", name]);
-    command.stdout(Stdio::from(File::options().create(true).append(true).open(&log_path)?));
-    command.stderr(Stdio::from(File::options().create(true).append(true).open(&log_path)?));
-    command.spawn()?;
+    command.stdout(log_file_io(&log_path));
+    command.stderr(log_file_io(&log_path));
+    command.spawn().unwrap_or_else(|err| panic!("failed to run command, err={err}"));
     info!("vm launched in background, check log in {}", log_path.to_string_lossy());
-    Ok(())
 }
 
-fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) -> Result<()> {
-    let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT])?;
+fn log_file_io(log_path: &PathBuf) -> Stdio {
+    Stdio::from(
+        File::options()
+            .create(true)
+            .append(true)
+            .open(log_path)
+            .unwrap_or_else(|err| panic!("failed to open log file, err={err}")),
+    )
+}
+
+fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+    let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT]).unwrap();
     thread::spawn(move || {
         let signal = signals.forever().next().unwrap();
         info!("recived signal, signal={signal}, name={name}, pid={}", process::id());
@@ -149,10 +152,11 @@ fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine
             SIGTERM | SIGINT | SIGQUIT => {
                 vm::stop_vm(name, vm);
             }
-            _ => unreachable!(),
+            _ => {
+                info!("signal ignored");
+            }
         }
     });
-    Ok(())
 }
 
 fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>, auto_reconfig_display: bool) {

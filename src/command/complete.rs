@@ -1,4 +1,3 @@
-use anyhow::Result;
 use clap::Args;
 
 use crate::config::vm_dir;
@@ -10,12 +9,11 @@ pub struct Complete {
 }
 
 impl Complete {
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self) {
         if self.name == "vm_name" {
             for vm_dir in vm_dir::vm_dirs().into_iter() {
                 println!("{}\tvm", vm_dir.name());
             }
         }
-        Ok(())
     }
 }

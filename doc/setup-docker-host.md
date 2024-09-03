@@ -3,7 +3,7 @@
 alpine doesn't support rosetta, use debian instead if you need rosetta support
 
 ### create alpine vm
-1. download alpine virt iso `https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/aarch64/alpine-virt-3.20.0-aarch64.iso`
+1. download alpine virt iso `https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/aarch64/alpine-virt-3.20.0-aarch64.iso`
 2. create vm
 ```sh
 vz create alpine --cpu=12 --ram=4 --disk=500

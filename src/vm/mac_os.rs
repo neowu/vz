@@ -1,8 +1,6 @@
 use std::path::Path;
 
-use anyhow::Result;
 use log::info;
-use objc2::exception::catch;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
@@ -37,15 +35,16 @@ use objc2_virtualization::VZVirtualMachineConfiguration;
 
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
-use crate::util::objc::ObjcError;
 use crate::util::path::PathExtension;
 
-pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachine>> {
+pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Retained<VZVirtualMachine> {
     info!("create macOS vm, name={}", dir.name());
-    let vz_config = create_vm_config(dir, config, marker)?;
+    let vz_config = create_vm_config(dir, config, marker);
     unsafe {
-        vz_config.validateWithError()?;
-        Ok(VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config))
+        vz_config
+            .validateWithError()
+            .unwrap_or_else(|err| panic!("virtual machine config validation error, err={}", err.localizedDescription()));
+        VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config)
     }
 }
 
@@ -59,7 +58,7 @@ pub fn hardware_model(base64_string: &str) -> Retained<VZMacHardwareModel> {
     }
 }
 
-fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Result<Retained<VZVirtualMachineConfiguration>> {
+fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Retained<VZVirtualMachineConfiguration> {
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
@@ -73,17 +72,17 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
         vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(VZMacTrackpadConfiguration::new())]));
 
         vz_config.setNetworkDevices(&NSArray::from_vec(vec![config.network()]));
-        vz_config.setStorageDevices(&NSArray::from_vec(vec![disk(&dir.disk_path)?]));
+        vz_config.setStorageDevices(&NSArray::from_vec(vec![disk(&dir.disk_path)]));
 
         vz_config.setMemoryBalloonDevices(&NSArray::from_vec(vec![Id::into_super(
             VZVirtioTraditionalMemoryBalloonDeviceConfiguration::new(),
         )]));
         vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
 
-        if let Some(sharing) = config.sharing_directories()? {
+        if let Some(sharing) = config.sharing_directories() {
             vz_config.setDirectorySharingDevices(&NSArray::from_vec(vec![sharing]));
         }
-        Ok(vz_config)
+        vz_config
     }
 }
 
@@ -100,20 +99,18 @@ fn platform(dir: &VmDir, config: &VmConfig) -> Retained<VZPlatformConfiguration>
     }
 }
 
-fn disk(disk: &Path) -> Result<Retained<VZStorageDeviceConfiguration>> {
+fn disk(disk: &Path) -> Retained<VZStorageDeviceConfiguration> {
     unsafe {
-        let attachment = catch(|| {
-            VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
-                VZDiskImageStorageDeviceAttachment::alloc(),
-                &disk.to_ns_url(),
-                false,
-                VZDiskImageCachingMode::Automatic,
-                VZDiskImageSynchronizationMode::Fsync,
-            )
-        })
-        .map_err(ObjcError::from)??;
+        let attachment = VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
+            VZDiskImageStorageDeviceAttachment::alloc(),
+            &disk.to_ns_url(),
+            false,
+            VZDiskImageCachingMode::Automatic,
+            VZDiskImageSynchronizationMode::Fsync,
+        )
+        .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
         let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
-        Ok(Id::into_super(disk))
+        Id::into_super(disk)
     }
 }
 

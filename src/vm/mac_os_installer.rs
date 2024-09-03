@@ -3,7 +3,6 @@ use core::ptr;
 use std::path::Path;
 use std::process;
 
-use anyhow::Result;
 use block2::StackBlock;
 use dispatch::ffi::dispatch_main;
 use log::error;
@@ -35,7 +34,7 @@ use objc2_virtualization::VZVirtualMachine;
 
 use crate::util::path::PathExtension;
 
-pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMarker) -> Result<()> {
+pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMarker) {
     let installer = unsafe { VZMacOSInstaller::initWithVirtualMachine_restoreImageURL(VZMacOSInstaller::alloc(), &vm, &ipsw.to_ns_url()) };
     let _observer = VZMacOSInstallerObserver::new(unsafe { installer.progress() });
     let installer = MainThreadBound::new(installer, marker);
@@ -44,7 +43,7 @@ pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMa
         let installer = installer.get(marker);
         let block = &StackBlock::new(move |err: *mut NSError| {
             if !err.is_null() {
-                error!("failed to install, error={}", unsafe { (*err).localizedDescription() });
+                error!("failed to install macOS, err={}", unsafe { (*err).localizedDescription() });
                 process::exit(1);
             } else {
                 info!("instal macOS done");
@@ -56,7 +55,6 @@ pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMa
         }
     });
     unsafe { dispatch_main() };
-    Ok(())
 }
 
 struct Ivars {

@@ -3,8 +3,6 @@ use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::process::Command;
 
-use anyhow::bail;
-use anyhow::Result;
 use clap::Args;
 
 use crate::config::vm_dir;
@@ -14,30 +12,30 @@ use crate::util::json;
 pub struct List;
 
 impl List {
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self) {
         let home_dir = vm_dir::home_dir();
         if !home_dir.exists() {
-            bail!("{} does not exist", home_dir.to_string_lossy());
+            panic!("home dir does not exist, dir={}", home_dir.to_string_lossy());
         }
 
-        let ip_addrs = ip_addrs()?;
+        let ip_addrs = ip_addrs();
 
         println!(
             "{:<16}{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}",
             "name", "status", "os", "cpu", "memory", "disk", "ip"
         );
-        for entry in fs::read_dir(home_dir)? {
-            let path = entry?.path();
+        for entry in fs::read_dir(home_dir).unwrap_or_else(|err| panic!("failed to read dir, err={err}")) {
+            let path = entry.unwrap_or_else(|err| panic!("failed to read dir, err={err}")).path();
             if path.is_dir() {
                 let dir = vm_dir::vm_dir(&path.file_name().unwrap().to_string_lossy());
                 if dir.initialized() {
                     let name = dir.name();
 
-                    let config = dir.load_config()?;
-                    let os = json::to_json_value(&config.os)?;
+                    let config = dir.load_config();
+                    let os = json::to_json_value(&config.os);
                     let cpu = config.cpu;
                     let memory = format!("{:.2}G", config.memory as f32 / (1024.0 * 1024.0 * 1024.0));
-                    let metadata = dir.disk_path.metadata()?;
+                    let metadata = dir.disk_path.metadata().unwrap_or_else(|err| panic!("failed to get metadata, err={err}"));
                     let disk = format!(
                         "{:0.2}G/{:.2}G",
                         metadata.blocks() as f32 * 512.0 / 1_000_000_000.0,
@@ -49,18 +47,16 @@ impl List {
                 }
             }
         }
-
-        Ok(())
     }
 }
 
-fn ip_addrs() -> Result<HashMap<String, String>> {
-    let output = Command::new("arp").arg("-anl").output()?;
+fn ip_addrs() -> HashMap<String, String> {
+    let output = Command::new("arp").arg("-anl").output().expect("failed to execute arp");
     if !output.status.success() {
-        bail!("failed to execute arp, error={}", String::from_utf8_lossy(&output.stderr))
+        panic!("failed to execute arp, err={}", String::from_utf8_lossy(&output.stderr))
     }
-    let output = String::from_utf8(output.stdout)?;
-    Ok(parse_arp_output(&output))
+    let output = String::from_utf8(output.stdout).expect("output should be in utf-8");
+    parse_arp_output(&output)
 }
 
 fn parse_arp_output(output: &str) -> HashMap<String, String> {

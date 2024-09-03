@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use anyhow::bail;
-use anyhow::Result;
 use objc2::rc::Id;
 use objc2::rc::Retained;
 use objc2::ClassType;
@@ -58,9 +56,9 @@ impl VmConfig {
         }
     }
 
-    pub fn sharing_directories(&self) -> Result<Option<Retained<VZDirectorySharingDeviceConfiguration>>> {
+    pub fn sharing_directories(&self) -> Option<Retained<VZDirectorySharingDeviceConfiguration>> {
         if self.sharing.is_empty() {
-            return Ok(None);
+            return None;
         }
         let mut keys: Vec<Retained<NSString>> = vec![];
         let mut values: Vec<Retained<VZSharedDirectory>> = vec![];
@@ -69,7 +67,7 @@ impl VmConfig {
             keys.push(NSString::from_str(key));
             let path = PathBuf::from(value).to_absolute_path();
             if !path.exists() {
-                bail!("sharing path does not exist, name={key}, path={}", path.to_string_lossy());
+                panic!("sharing path does not exist, name={key}, path={}", path.to_string_lossy());
             }
             unsafe {
                 values.push(VZSharedDirectory::initWithURL_readOnly(
@@ -89,7 +87,7 @@ impl VmConfig {
             );
             let sharings = VZMultipleDirectoryShare::initWithDirectories(VZMultipleDirectoryShare::alloc(), &directories);
             device.setShare(Some(&Id::into_super(sharings)));
-            Ok(Some(Id::into_super(device)))
+            Some(Id::into_super(device))
         }
     }
 }

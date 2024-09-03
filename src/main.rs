@@ -1,4 +1,3 @@
-use anyhow::Result;
 use clap::Parser;
 use clap::Subcommand;
 use command::complete::Complete;
@@ -50,7 +49,7 @@ pub enum Command {
     Complete(Complete),
 }
 
-fn main() -> Result<()> {
+fn main() {
     env_logger::builder().filter_level(log::LevelFilter::Info).init();
     let cli = Cli::parse();
     match cli.command {

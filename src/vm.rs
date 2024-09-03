@@ -26,7 +26,7 @@ pub fn start_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>
             if err.is_null() {
                 info!("vm started");
             } else {
-                error!("vm failed to start, error={}", unsafe { (*err).localizedDescription() });
+                error!("vm failed to start, err={}", unsafe { (*err).localizedDescription() });
                 process::exit(1);
             }
         });
@@ -52,7 +52,7 @@ fn request_stop_vm(vm: &Retained<VZVirtualMachine>) -> bool {
         if vm.canRequestStop() {
             info!("request vm to stop");
             if let Err(err) = vm.requestStopWithError() {
-                error!("failed to request vm to stop, error={}", err.localizedDescription());
+                error!("failed to request vm to stop, err={}", err.localizedDescription());
                 process::exit(1);
             }
             return true;
@@ -71,7 +71,7 @@ fn force_stop_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
                     info!("vm stopped");
                     process::exit(0);
                 } else {
-                    error!("vm failed to stop, error={}", unsafe { (*err).localizedDescription() });
+                    error!("vm failed to stop, err={}", unsafe { (*err).localizedDescription() });
                     process::exit(1);
                 }
             });

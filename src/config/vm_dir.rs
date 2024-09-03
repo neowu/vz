@@ -1,8 +1,6 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::bail;
-use anyhow::Result;
 use libc::pid_t;
 use log::info;
 use uuid::Uuid;
@@ -40,29 +38,31 @@ impl VmDir {
         self.config_path.exists() && self.disk_path.exists() && self.nvram_path.exists()
     }
 
-    pub fn load_config(&self) -> Result<VmConfig> {
-        let json = fs::read_to_string(&self.config_path)?;
+    pub fn load_config(&self) -> VmConfig {
+        let json = fs::read_to_string(&self.config_path).unwrap_or_else(|err| panic!("failed to load config, err={err}"));
         json::from_json(&json)
     }
 
-    pub fn save_config(&self, config: &VmConfig) -> Result<()> {
-        let json = json::to_json_pretty(&config)?;
-        fs::write(&self.config_path, json)?;
-        Ok(())
+    pub fn save_config(&self, config: &VmConfig) {
+        let json = json::to_json_pretty(&config);
+        fs::write(&self.config_path, json).unwrap_or_else(|err| panic!("failed to save config, err={err}"))
     }
 
-    pub fn resize(&self, size: u64) -> Result<()> {
-        let file = fs::OpenOptions::new().create(true).append(true).open(&self.disk_path)?;
-        file.set_len(size)?;
-        Ok(())
+    pub fn resize(&self, size: u64) {
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.disk_path)
+            .unwrap_or_else(|err| panic!("failed to open file, err={err}"));
+        file.set_len(size).unwrap_or_else(|err| panic!("failed to resize file, err={err}"))
     }
 
-    pub fn lock(&self) -> Result<FileLock> {
+    pub fn lock(&self) -> FileLock {
         let lock = FileLock::new(&self.config_path);
         if lock.lock() {
-            Ok(lock)
+            lock
         } else {
-            bail!("vm is already running, name={}", self.name())
+            panic!("vm is already running, name={}", self.name())
         }
     }
 
@@ -93,9 +93,9 @@ pub fn vm_dirs() -> Vec<VmDir> {
     }
 }
 
-pub fn create_temp_vm_dir() -> Result<VmDir> {
+pub fn create_temp_vm_dir() -> VmDir {
     let temp_dir = home_dir().join(Uuid::now_v7().to_string());
     info!("create temp vm dir, dir={}", temp_dir.to_string_lossy());
-    fs::create_dir_all(&temp_dir)?;
-    Ok(VmDir::new(temp_dir))
+    fs::create_dir_all(&temp_dir).unwrap_or_else(|err| panic!("failed to create temp vm dir, err={err}"));
+    VmDir::new(temp_dir)
 }
