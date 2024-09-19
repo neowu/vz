@@ -4,12 +4,12 @@ version = "0.6.5"
 edition = "2021"
 
 [dependencies]
-log = "0"
-env_logger = "0"
+log = "*"
+env_logger = "*"
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
 objc2 = { version = "0", features = ["std", "exception"] }
 objc2-foundation = { version = "0", features = ["all", "dispatch"] }
 objc2-virtualization = { version = "0", features = ["all"] }
@@ -17,5 +17,5 @@ objc2-app-kit = { version = "0", features = ["all"] }
 block2 = "0"
 dispatch = "0"
 signal-hook = "0"
-uuid = { version = "1", features = ["v7"] }
-libc = "0"
+uuid = { version = "*", features = ["v7"] }
+libc = "*"
