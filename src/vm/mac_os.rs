@@ -12,10 +12,12 @@ use objc2_foundation::NSData;
 use objc2_foundation::NSDataBase64DecodingOptions;
 use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
+use objc2_virtualization::VZAudioDeviceConfiguration;
 use objc2_virtualization::VZDiskImageCachingMode;
 use objc2_virtualization::VZDiskImageStorageDeviceAttachment;
 use objc2_virtualization::VZDiskImageSynchronizationMode;
 use objc2_virtualization::VZGraphicsDeviceConfiguration;
+use objc2_virtualization::VZHostAudioOutputStreamSink;
 use objc2_virtualization::VZMacAuxiliaryStorage;
 use objc2_virtualization::VZMacGraphicsDeviceConfiguration;
 use objc2_virtualization::VZMacGraphicsDisplayConfiguration;
@@ -29,6 +31,8 @@ use objc2_virtualization::VZPlatformConfiguration;
 use objc2_virtualization::VZStorageDeviceConfiguration;
 use objc2_virtualization::VZVirtioBlockDeviceConfiguration;
 use objc2_virtualization::VZVirtioEntropyDeviceConfiguration;
+use objc2_virtualization::VZVirtioSoundDeviceConfiguration;
+use objc2_virtualization::VZVirtioSoundDeviceOutputStreamConfiguration;
 use objc2_virtualization::VZVirtioTraditionalMemoryBalloonDeviceConfiguration;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
@@ -68,6 +72,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
         vz_config.setPlatform(&platform(dir, config));
 
         vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1920, 1080, marker)]));
+        vz_config.setAudioDevices(&NSArray::from_vec(vec![audio()]));
         vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZMacKeyboardConfiguration::new())]));
         vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(VZMacTrackpadConfiguration::new())]));
 
@@ -83,6 +88,16 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
             vz_config.setDirectorySharingDevices(&NSArray::from_vec(vec![sharing]));
         }
         vz_config
+    }
+}
+
+fn audio() -> Retained<VZAudioDeviceConfiguration> {
+    unsafe {
+        let stream = VZVirtioSoundDeviceOutputStreamConfiguration::new();
+        stream.setSink(Some(&Id::into_super(VZHostAudioOutputStreamSink::new())));
+        let audio = VZVirtioSoundDeviceConfiguration::new();
+        audio.setStreams(&NSArray::from_vec(vec![Id::into_super(stream)]));
+        Id::into_super(audio)
     }
 }
 
