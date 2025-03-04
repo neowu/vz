@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use objc2::rc::Id;
+use objc2::AllocAnyThread;
 use objc2::rc::Retained;
-use objc2::ClassType;
 use objc2_foundation::NSDictionary;
 use objc2_foundation::NSString;
 use objc2_virtualization::VZDirectorySharingDeviceConfiguration;
@@ -52,7 +51,7 @@ impl VmConfig {
             network.setAttachment(Some(&VZNATNetworkDeviceAttachment::new()));
             let mac_address = VZMACAddress::initWithString(VZMACAddress::alloc(), &NSString::from_str(&self.mac_address)).unwrap();
             network.setMACAddress(&mac_address);
-            Id::into_super(network)
+            Retained::into_super(network)
         }
     }
 
@@ -79,15 +78,15 @@ impl VmConfig {
         }
 
         let keys: Vec<&NSString> = keys.iter().map(|v| v.as_ref()).collect();
-        let directories = NSDictionary::from_vec(&keys, values);
+        let directories = NSDictionary::from_retained_objects(&keys, &values);
         unsafe {
             let device = VZVirtioFileSystemDeviceConfiguration::initWithTag(
                 VZVirtioFileSystemDeviceConfiguration::alloc(),
                 &VZVirtioFileSystemDeviceConfiguration::macOSGuestAutomountTag(),
             );
             let sharings = VZMultipleDirectoryShare::initWithDirectories(VZMultipleDirectoryShare::alloc(), &directories);
-            device.setShare(Some(&Id::into_super(sharings)));
-            Some(Id::into_super(device))
+            device.setShare(Some(&Retained::into_super(sharings)));
+            Some(Retained::into_super(device))
         }
     }
 }

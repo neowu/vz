@@ -1,11 +1,9 @@
 use std::path::Path;
 
 use log::info;
-use objc2::rc::Id;
+use objc2::AllocAnyThread;
 use objc2::rc::Retained;
-use objc2::ClassType;
 use objc2_app_kit::NSScreen;
-use objc2_foundation::CGFloat;
 use objc2_foundation::MainThreadMarker;
 use objc2_foundation::NSArray;
 use objc2_foundation::NSData;
@@ -71,21 +69,23 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
         vz_config.setBootLoader(Some(&VZMacOSBootLoader::new()));
         vz_config.setPlatform(&platform(dir, config));
 
-        vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1920, 1080, marker)]));
-        vz_config.setAudioDevices(&NSArray::from_vec(vec![audio()]));
-        vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZMacKeyboardConfiguration::new())]));
-        vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(VZMacTrackpadConfiguration::new())]));
+        vz_config.setGraphicsDevices(&NSArray::from_retained_slice(&[display(1920, 1080, marker)]));
+        vz_config.setAudioDevices(&NSArray::from_retained_slice(&[audio()]));
+        vz_config.setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(VZMacKeyboardConfiguration::new())]));
+        vz_config.setPointingDevices(&NSArray::from_retained_slice(&[Retained::into_super(VZMacTrackpadConfiguration::new())]));
 
-        vz_config.setNetworkDevices(&NSArray::from_vec(vec![config.network()]));
-        vz_config.setStorageDevices(&NSArray::from_vec(vec![disk(&dir.disk_path)]));
+        vz_config.setNetworkDevices(&NSArray::from_retained_slice(&[config.network()]));
+        vz_config.setStorageDevices(&NSArray::from_retained_slice(&[disk(&dir.disk_path)]));
 
-        vz_config.setMemoryBalloonDevices(&NSArray::from_vec(vec![Id::into_super(
+        vz_config.setMemoryBalloonDevices(&NSArray::from_retained_slice(&[Retained::into_super(
             VZVirtioTraditionalMemoryBalloonDeviceConfiguration::new(),
         )]));
-        vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
+        vz_config.setEntropyDevices(&NSArray::from_retained_slice(&[Retained::into_super(
+            VZVirtioEntropyDeviceConfiguration::new(),
+        )]));
 
         if let Some(sharing) = config.sharing_directories() {
-            vz_config.setDirectorySharingDevices(&NSArray::from_vec(vec![sharing]));
+            vz_config.setDirectorySharingDevices(&NSArray::from_retained_slice(&[sharing]));
         }
         vz_config
     }
@@ -94,10 +94,10 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
 fn audio() -> Retained<VZAudioDeviceConfiguration> {
     unsafe {
         let stream = VZVirtioSoundDeviceOutputStreamConfiguration::new();
-        stream.setSink(Some(&Id::into_super(VZHostAudioOutputStreamSink::new())));
+        stream.setSink(Some(&Retained::into_super(VZHostAudioOutputStreamSink::new())));
         let audio = VZVirtioSoundDeviceConfiguration::new();
-        audio.setStreams(&NSArray::from_vec(vec![Id::into_super(stream)]));
-        Id::into_super(audio)
+        audio.setStreams(&NSArray::from_retained_slice(&[Retained::into_super(stream)]));
+        Retained::into_super(audio)
     }
 }
 
@@ -110,7 +110,7 @@ fn platform(dir: &VmDir, config: &VmConfig) -> Retained<VZPlatformConfiguration>
         )));
         platform.setHardwareModel(&hardware_model(config.hardware_model.as_ref().unwrap()));
         platform.setMachineIdentifier(&machine_identifier(config.machine_identifier.as_ref().unwrap()));
-        Id::into_super(platform)
+        Retained::into_super(platform)
     }
 }
 
@@ -125,7 +125,7 @@ fn disk(disk: &Path) -> Retained<VZStorageDeviceConfiguration> {
         )
         .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
         let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
-        Id::into_super(disk)
+        Retained::into_super(disk)
     }
 }
 
@@ -133,12 +133,14 @@ fn display(width: isize, height: isize, marker: MainThreadMarker) -> Retained<VZ
     let screen = NSScreen::mainScreen(marker).unwrap();
     unsafe {
         let display = VZMacGraphicsDeviceConfiguration::new();
-        display.setDisplays(&NSArray::from_vec(vec![VZMacGraphicsDisplayConfiguration::initForScreen_sizeInPoints(
-            VZMacGraphicsDisplayConfiguration::alloc(),
-            &screen,
-            NSSize::new(width as CGFloat, height as CGFloat),
-        )]));
-        Id::into_super(display)
+        display.setDisplays(&NSArray::from_retained_slice(&[
+            VZMacGraphicsDisplayConfiguration::initForScreen_sizeInPoints(
+                VZMacGraphicsDisplayConfiguration::alloc(),
+                &screen,
+                NSSize::new(width as f64, height as f64),
+            ),
+        ]));
+        Retained::into_super(display)
     }
 }
 

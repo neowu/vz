@@ -9,7 +9,8 @@ use std::thread;
 
 use clap::Args;
 use clap::ValueHint;
-use dispatch::ffi::dispatch_main;
+use dispatch2::MainThreadBound;
+use dispatch2::ffi::dispatch_main;
 use log::info;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
@@ -23,13 +24,12 @@ use objc2_app_kit::NSMenuItem;
 use objc2_app_kit::NSWindow;
 use objc2_app_kit::NSWindowDelegate;
 use objc2_app_kit::NSWindowStyleMask;
-use objc2_foundation::ns_string;
-use objc2_foundation::CGPoint;
-use objc2_foundation::CGSize;
-use objc2_foundation::MainThreadBound;
 use objc2_foundation::MainThreadMarker;
+use objc2_foundation::NSPoint;
 use objc2_foundation::NSRect;
+use objc2_foundation::NSSize;
 use objc2_foundation::NSString;
+use objc2_foundation::ns_string;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineDelegate;
 use objc2_virtualization::VZVirtualMachineView;
@@ -116,6 +116,7 @@ impl Run {
     }
 }
 
+#[allow(clippy::zombie_processes)]
 fn run_in_background(name: &str) {
     let log_path = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
 
@@ -167,11 +168,11 @@ fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retaine
         NSWindow::initWithContentRect_styleMask_backing_defer_screen(
             marker.alloc(),
             NSRect {
-                origin: CGPoint::new(0.0, 0.0),
-                size: CGSize::new(1024.0, 768.0),
+                origin: NSPoint::new(0.0, 0.0),
+                size: NSSize::new(1024.0, 768.0),
             },
             NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable | NSWindowStyleMask::Closable,
-            NSBackingStoreType::NSBackingStoreBuffered,
+            NSBackingStoreType::Buffered,
             false,
             Option::None,
         )
@@ -191,7 +192,7 @@ fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retaine
         machine_view.setCapturesSystemKeys(true);
         machine_view.setAutomaticallyReconfiguresDisplay(auto_reconfig_display);
         machine_view.setVirtualMachine(Some(vm.get(marker)));
-        machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::NSViewWidthSizable | NSAutoresizingMaskOptions::NSViewHeightSizable);
+        machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable);
         window.contentView().unwrap().addSubview(&machine_view);
     }
 
@@ -199,5 +200,5 @@ fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retaine
     window.setDelegate(Some(&proto));
 
     window.makeKeyAndOrderFront(Option::None);
-    unsafe { app.run() };
+    app.run();
 }

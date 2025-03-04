@@ -9,9 +9,8 @@ use block2::StackBlock;
 use clap::Args;
 use clap::ValueHint;
 use log::info;
-use objc2::rc::Id;
+use objc2::AllocAnyThread;
 use objc2::rc::Retained;
-use objc2::ClassType;
 use objc2_foundation::NSDataBase64EncodingOptions;
 use objc2_foundation::NSError;
 use objc2_virtualization::VZEFIVariableStore;
@@ -172,7 +171,7 @@ fn load_mac_os_restore_image(ipsw: &Path) -> Retained<VZMacOSRestoreImage> {
             if !err.is_null() {
                 panic!("failed to load image, err={}", (*err).localizedDescription());
             } else {
-                let image = Id::from_raw(image).unwrap();
+                let image = Retained::from_raw(image).unwrap();
                 tx.send(image).unwrap();
             }
         });

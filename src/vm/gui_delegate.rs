@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
-use objc2::declare_class;
-use objc2::msg_send_id;
-use objc2::mutability;
-use objc2::rc::Retained;
-use objc2::ClassType;
+use dispatch2::MainThreadBound;
 use objc2::DeclaredClass;
+use objc2::MainThreadOnly;
+use objc2::define_class;
+use objc2::msg_send;
+use objc2::rc::Retained;
 use objc2_app_kit::NSWindowDelegate;
-use objc2_foundation::MainThreadBound;
 use objc2_foundation::MainThreadMarker;
 use objc2_foundation::NSNotification;
 use objc2_foundation::NSObject;
@@ -22,26 +21,20 @@ pub struct Ivars {
     name: Retained<NSString>,
 }
 
-declare_class!(
+define_class!(
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    #[name = "GuiDelegate"]
+    #[ivars = Ivars]
     pub struct GuiDelegate;
-
-    unsafe impl ClassType for GuiDelegate {
-        type Super = NSObject;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "GuiDelegate";
-    }
-
-    impl DeclaredClass for GuiDelegate {
-        type Ivars = Ivars;
-    }
 
     unsafe impl NSObjectProtocol for GuiDelegate {}
 
     unsafe impl NSWindowDelegate for GuiDelegate {
-        #[method(windowWillClose:)]
+        #[unsafe(method(windowWillClose:))]
         fn window_will_close(&self, _: &NSNotification) {
             let ivars = self.ivars();
-             vm::stop_vm(ivars.name.to_string(), Arc::clone(&ivars.vm));
+            vm::stop_vm(ivars.name.to_string(), Arc::clone(&ivars.vm));
         }
     }
 );
@@ -53,6 +46,6 @@ impl GuiDelegate {
             vm,
             name: NSString::from_str(name),
         });
-        unsafe { msg_send_id![super(this), init] }
+        unsafe { msg_send![super(this), init] }
     }
 }

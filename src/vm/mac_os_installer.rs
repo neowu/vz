@@ -4,20 +4,17 @@ use std::path::Path;
 use std::process;
 
 use block2::StackBlock;
-use dispatch::ffi::dispatch_main;
+use dispatch2::MainThreadBound;
+use dispatch2::ffi::dispatch_main;
+use dispatch2::run_on_main;
 use log::error;
 use log::info;
-use objc2::declare_class;
-use objc2::msg_send_id;
-use objc2::mutability;
-use objc2::rc::Id;
+use objc2::AllocAnyThread;
+use objc2::DeclaredClass;
+use objc2::define_class;
+use objc2::msg_send;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::ClassType;
-use objc2::DeclaredClass;
-use objc2_foundation::ns_string;
-use objc2_foundation::run_on_main;
-use objc2_foundation::MainThreadBound;
 use objc2_foundation::MainThreadMarker;
 use objc2_foundation::NSDictionary;
 use objc2_foundation::NSError;
@@ -29,6 +26,7 @@ use objc2_foundation::NSObjectNSKeyValueObserverRegistration;
 use objc2_foundation::NSObjectProtocol;
 use objc2_foundation::NSProgress;
 use objc2_foundation::NSString;
+use objc2_foundation::ns_string;
 use objc2_virtualization::VZMacOSInstaller;
 use objc2_virtualization::VZVirtualMachine;
 
@@ -61,43 +59,42 @@ struct Ivars {
     progress: Retained<NSProgress>,
 }
 
-declare_class!(
+define_class!(
+    #[unsafe(super = NSObject)]
+    #[name = "VZMacOSInstallerObserver"]
+    #[ivars = Ivars]
     struct VZMacOSInstallerObserver;
 
-    unsafe impl ClassType for VZMacOSInstallerObserver {
-        type Super = NSObject;
-        type Mutability = mutability::Immutable;
-        const NAME: &'static str = "VZMacOSInstallerObserver";
-    }
+    unsafe impl NSObjectProtocol for VZMacOSInstallerObserver {}
 
-    impl DeclaredClass for VZMacOSInstallerObserver {
-        type Ivars = Ivars;
-    }
-
-    unsafe impl VZMacOSInstallerObserver {
-        #[method(observeValueForKeyPath:ofObject:change:context:)]
-        fn observe_value(&self, _key_path: Option<&NSString>, _object: Option<&AnyObject>, change: Option<&NSDictionary<NSKeyValueChangeKey, AnyObject>>, _context: *mut c_void) {
+    impl VZMacOSInstallerObserver {
+        #[unsafe(method(observeValueForKeyPath:ofObject:change:context:))]
+        fn observe_value(
+            &self,
+            _key_path: Option<&NSString>,
+            _object: Option<&AnyObject>,
+            change: Option<&NSDictionary<NSKeyValueChangeKey, AnyObject>>,
+            _context: *mut c_void,
+        ) {
             if let Some(change) = change {
-                let new_value = change.get_retained(ns_string!("new")).unwrap();
-                let percent: Retained<NSNumber> = unsafe {Id::cast(new_value)};
+                let new_value = change.objectForKey(ns_string!("new")).unwrap();
+                let percent: Retained<NSNumber> = unsafe { Retained::cast_unchecked(new_value) };
                 info!("instal progress: {:.2}%", percent.floatValue() * 100.0);
             }
         }
     }
-
-    unsafe impl NSObjectProtocol for VZMacOSInstallerObserver {}
 );
 
 impl VZMacOSInstallerObserver {
     fn new(progress: Retained<NSProgress>) -> Retained<Self> {
-        let observer = Self::alloc().set_ivars(Ivars { progress });
-        let observer: Retained<Self> = unsafe { msg_send_id![super(observer), init] };
+        let observer = VZMacOSInstallerObserver::alloc().set_ivars(Ivars { progress });
+        let observer: Retained<Self> = unsafe { msg_send![super(observer), init] };
         let progress = &observer.ivars().progress;
         unsafe {
             progress.addObserver_forKeyPath_options_context(
                 &observer,
                 ns_string!("fractionCompleted"),
-                NSKeyValueObservingOptions::NSKeyValueObservingOptionInitial | NSKeyValueObservingOptions::NSKeyValueObservingOptionNew,
+                NSKeyValueObservingOptions::Initial | NSKeyValueObservingOptions::New,
                 ptr::null_mut(),
             );
         }

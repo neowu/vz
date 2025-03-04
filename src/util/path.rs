@@ -1,8 +1,8 @@
 use std::path::Path;
 use std::path::PathBuf;
 
+use objc2::AllocAnyThread;
 use objc2::rc::Retained;
-use objc2::ClassType;
 use objc2_foundation::NSString;
 use objc2_foundation::NSURL;
 

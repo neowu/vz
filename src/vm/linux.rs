@@ -2,13 +2,12 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use log::info;
-use objc2::rc::Id;
+use objc2::AllocAnyThread;
 use objc2::rc::Retained;
-use objc2::ClassType;
-use objc2_foundation::ns_string;
 use objc2_foundation::NSArray;
 use objc2_foundation::NSString;
 use objc2_foundation::NSURL;
+use objc2_foundation::ns_string;
 use objc2_virtualization::VZDirectorySharingDeviceConfiguration;
 use objc2_virtualization::VZDiskImageCachingMode;
 use objc2_virtualization::VZDiskImageStorageDeviceAttachment;
@@ -56,20 +55,22 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&Pa
         vz_config.setPlatform(&VZGenericPlatformConfiguration::new());
 
         if gui {
-            vz_config.setGraphicsDevices(&NSArray::from_vec(vec![display(1024, 768)]));
-            vz_config.setKeyboards(&NSArray::from_vec(vec![Id::into_super(VZUSBKeyboardConfiguration::new())]));
-            vz_config.setPointingDevices(&NSArray::from_vec(vec![Id::into_super(
+            vz_config.setGraphicsDevices(&NSArray::from_retained_slice(&[display(1024, 768)]));
+            vz_config.setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(VZUSBKeyboardConfiguration::new())]));
+            vz_config.setPointingDevices(&NSArray::from_retained_slice(&[Retained::into_super(
                 VZUSBScreenCoordinatePointingDeviceConfiguration::new(),
             )]));
         }
 
-        vz_config.setNetworkDevices(&NSArray::from_vec(vec![config.network()]));
-        vz_config.setStorageDevices(&NSArray::from_vec(storage(dir, mount)));
+        vz_config.setNetworkDevices(&NSArray::from_retained_slice(&[config.network()]));
+        vz_config.setStorageDevices(&NSArray::from_retained_slice(&storage(dir, mount)));
 
-        vz_config.setMemoryBalloonDevices(&NSArray::from_vec(vec![Id::into_super(
+        vz_config.setMemoryBalloonDevices(&NSArray::from_retained_slice(&[Retained::into_super(
             VZVirtioTraditionalMemoryBalloonDeviceConfiguration::new(),
         )]));
-        vz_config.setEntropyDevices(&NSArray::from_vec(vec![Id::into_super(VZVirtioEntropyDeviceConfiguration::new())]));
+        vz_config.setEntropyDevices(&NSArray::from_retained_slice(&[Retained::into_super(
+            VZVirtioEntropyDeviceConfiguration::new(),
+        )]));
 
         let mut sharings: Vec<Retained<VZDirectorySharingDeviceConfiguration>> = vec![];
         if let Some(sharing) = config.sharing_directories() {
@@ -77,10 +78,10 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&Pa
         }
         if let Some(true) = config.rosetta {
             let device = VZVirtioFileSystemDeviceConfiguration::initWithTag(VZVirtioFileSystemDeviceConfiguration::alloc(), ns_string!("rosetta"));
-            device.setShare(Some(&Id::into_super(VZLinuxRosettaDirectoryShare::new())));
-            sharings.push(Id::into_super(device));
+            device.setShare(Some(&Retained::into_super(VZLinuxRosettaDirectoryShare::new())));
+            sharings.push(Retained::into_super(device));
         }
-        vz_config.setDirectorySharingDevices(&NSArray::from_vec(sharings));
+        vz_config.setDirectorySharingDevices(&NSArray::from_retained_slice(&sharings));
 
         vz_config
     }
@@ -117,7 +118,7 @@ fn disk(disk: &Path) -> Retained<VZStorageDeviceConfiguration> {
         )
         .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
         let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
-        Id::into_super(disk)
+        Retained::into_super(disk)
     }
 }
 
@@ -128,7 +129,7 @@ fn mount_disk(mount: &Path) -> Retained<VZStorageDeviceConfiguration> {
                 .unwrap_or_else(|err| panic!("failed to create mount disk, err={}", err.localizedDescription()));
 
         let disk = VZUSBMassStorageDeviceConfiguration::initWithAttachment(VZUSBMassStorageDeviceConfiguration::alloc(), &attachment);
-        Id::into_super(disk)
+        Retained::into_super(disk)
     }
 }
 
@@ -137,8 +138,8 @@ fn display(width: isize, height: isize) -> Retained<VZGraphicsDeviceConfiguratio
         let display = VZVirtioGraphicsDeviceConfiguration::new();
         let scanout =
             VZVirtioGraphicsScanoutConfiguration::initWithWidthInPixels_heightInPixels(VZVirtioGraphicsScanoutConfiguration::alloc(), width, height);
-        let scanouts = &NSArray::from_vec(vec![scanout]);
+        let scanouts = &NSArray::from_retained_slice(&[scanout]);
         display.setScanouts(scanouts);
-        Id::into_super(display)
+        Retained::into_super(display)
     }
 }

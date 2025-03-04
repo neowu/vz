@@ -3,12 +3,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use block2::StackBlock;
-use dispatch::Queue;
+use dispatch2::MainThreadBound;
+use dispatch2::Queue;
+use dispatch2::run_on_main;
 use log::error;
 use log::info;
 use objc2::rc::Retained;
-use objc2_foundation::run_on_main;
-use objc2_foundation::MainThreadBound;
 use objc2_foundation::NSError;
 use objc2_virtualization::VZVirtualMachine;
 
@@ -40,7 +40,10 @@ pub fn stop_vm(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>
     run_on_main(|marker| {
         info!("stop vm, name={name}, pid={}", process::id());
         if request_stop_vm(vm.get(marker)) {
-            Queue::main().exec_after(Duration::from_secs(15), || force_stop_vm(vm));
+            let result = Queue::main().after(Duration::from_secs(15), || force_stop_vm(vm));
+            if let Err(err) = result {
+                error!("failed to queue force_stop_vm, err={err:?}");
+            }
         } else {
             force_stop_vm(vm);
         }
