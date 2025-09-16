@@ -1,5 +1,5 @@
 use clap::Args;
-use log::info;
+use tracing::info;
 
 use crate::config::vm_dir;
 

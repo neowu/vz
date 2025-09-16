@@ -1,7 +1,5 @@
 use std::process;
 
-use log::error;
-use log::info;
 use objc2::AllocAnyThread;
 use objc2::define_class;
 use objc2::msg_send;
@@ -12,6 +10,8 @@ use objc2_foundation::NSObjectProtocol;
 use objc2_virtualization::VZNetworkDevice;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineDelegate;
+use tracing::error;
+use tracing::info;
 
 define_class!(
     #[unsafe(super = NSObject)]

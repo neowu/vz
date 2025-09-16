@@ -5,10 +5,8 @@ use std::process;
 
 use block2::StackBlock;
 use dispatch2::MainThreadBound;
-use dispatch2::ffi::dispatch_main;
+use dispatch2::dispatch_main;
 use dispatch2::run_on_main;
-use log::error;
-use log::info;
 use objc2::AllocAnyThread;
 use objc2::DeclaredClass;
 use objc2::define_class;
@@ -29,6 +27,8 @@ use objc2_foundation::NSString;
 use objc2_foundation::ns_string;
 use objc2_virtualization::VZMacOSInstaller;
 use objc2_virtualization::VZVirtualMachine;
+use tracing::error;
+use tracing::info;
 
 use crate::util::path::PathExtension;
 
@@ -52,7 +52,7 @@ pub fn install(vm: Retained<VZVirtualMachine>, ipsw: &Path, marker: MainThreadMa
             installer.installWithCompletionHandler(block);
         }
     });
-    unsafe { dispatch_main() };
+    dispatch_main();
 }
 
 struct Ivars {

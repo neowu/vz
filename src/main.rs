@@ -9,6 +9,10 @@ use command::list::List;
 use command::resize::Resize;
 use command::run::Run;
 use command::stop::Stop;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::Layer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 mod command;
 mod config;
@@ -50,7 +54,16 @@ pub enum Command {
 }
 
 fn main() {
-    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .compact()
+                .with_line_number(true)
+                .with_thread_ids(true)
+                .with_filter(LevelFilter::INFO),
+        )
+        .init();
+
     let cli = Cli::parse();
     match cli.command {
         Command::List(command) => command.execute(),

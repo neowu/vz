@@ -3,8 +3,8 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use clap::Args;
-use log::error;
-use log::info;
+use tracing::error;
+use tracing::info;
 
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;

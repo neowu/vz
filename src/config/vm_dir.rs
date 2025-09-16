@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use libc::pid_t;
-use log::info;
+use tracing::info;
 use uuid::Uuid;
 
 use super::vm_config::VmConfig;

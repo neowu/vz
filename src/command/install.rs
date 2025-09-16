@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::Args;
 use clap::ValueHint;
-use log::info;
 use objc2_foundation::MainThreadMarker;
+use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;

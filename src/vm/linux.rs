@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use log::info;
 use objc2::AllocAnyThread;
 use objc2::rc::Retained;
 use objc2_foundation::NSArray;
@@ -29,6 +28,7 @@ use objc2_virtualization::VZVirtioGraphicsScanoutConfiguration;
 use objc2_virtualization::VZVirtioTraditionalMemoryBalloonDeviceConfiguration;
 use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
+use tracing::info;
 
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;

@@ -8,7 +8,6 @@ use std::sync::mpsc::channel;
 use block2::StackBlock;
 use clap::Args;
 use clap::ValueHint;
-use log::info;
 use objc2::AllocAnyThread;
 use objc2::rc::Retained;
 use objc2_foundation::NSDataBase64EncodingOptions;
@@ -20,6 +19,7 @@ use objc2_virtualization::VZMacAuxiliaryStorage;
 use objc2_virtualization::VZMacAuxiliaryStorageInitializationOptions;
 use objc2_virtualization::VZMacMachineIdentifier;
 use objc2_virtualization::VZMacOSRestoreImage;
+use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_config::VmConfig;

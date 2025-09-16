@@ -1,11 +1,11 @@
 [package]
 name = "vz"
-version = "0.6.7"
+version = "0.7.0"
 edition = "2024"
 
 [dependencies]
-log = "*"
-env_logger = "*"
+tracing = "*"
+tracing-subscriber = "*"
 clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 serde = { version = "*", features = ["derive"] }

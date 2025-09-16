@@ -10,8 +10,7 @@ use std::thread;
 use clap::Args;
 use clap::ValueHint;
 use dispatch2::MainThreadBound;
-use dispatch2::ffi::dispatch_main;
-use log::info;
+use dispatch2::dispatch_main;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::sel;
@@ -37,6 +36,7 @@ use signal_hook::consts::signal::SIGINT;
 use signal_hook::consts::signal::SIGQUIT;
 use signal_hook::consts::signal::SIGTERM;
 use signal_hook::iterator::Signals;
+use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
@@ -97,17 +97,15 @@ impl Run {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
             run_gui(name, marker, vm, auto_reconfig_display);
         } else {
-            unsafe {
-                dispatch_main();
-            }
+            dispatch_main();
         }
     }
 
     fn validate(&self) {
-        if let Some(path) = &self.mount {
-            if !path.exists() {
-                panic!("mount does not exist, path={}", path.to_string_lossy());
-            }
+        if let Some(path) = &self.mount
+            && !path.exists()
+        {
+            panic!("mount does not exist, path={}", path.to_string_lossy());
         }
 
         if self.detached && (self.gui || self.mount.is_some()) {
@@ -120,10 +118,10 @@ impl Run {
 fn run_in_background(name: &str) {
     let log_path = PathBuf::from("~/Library/Logs/vz.log").to_absolute_path();
 
-    if let Ok(metadata) = log_path.metadata() {
-        if !metadata.is_file() || metadata.permissions().readonly() {
-            panic!("log file is not writable, path={}", log_path.to_string_lossy());
-        }
+    if let Ok(metadata) = log_path.metadata()
+        && (!metadata.is_file() || metadata.permissions().readonly())
+    {
+        panic!("log file is not writable, path={}", log_path.to_string_lossy());
     }
 
     let mut command = Command::new(current_exe().unwrap_or_else(|err| panic!("failed to get current command path, err={err}")));
