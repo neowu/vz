@@ -37,6 +37,7 @@ use signal_hook::consts::signal::SIGQUIT;
 use signal_hook::consts::signal::SIGTERM;
 use signal_hook::iterator::Signals;
 use tracing::info;
+use tracing::info_span;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
@@ -73,6 +74,9 @@ impl Run {
             return run_in_background(name);
         }
 
+        let span = info_span!("run_vm", name = self.name, pid = process::id());
+        let enter = span.enter();
+
         let config = dir.load_config();
 
         // must after vm_dir.load_config(), it cloese config file and release all fd
@@ -89,7 +93,9 @@ impl Run {
             vm.setDelegate(Some(&proto));
         }
         let vm = Arc::new(MainThreadBound::new(vm, marker));
-        vm::start_vm(name, Arc::clone(&vm));
+        vm::start_vm(Arc::clone(&vm));
+
+        drop(enter);
 
         handle_signal(name.to_string(), Arc::clone(&vm));
 
@@ -146,10 +152,10 @@ fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine
     let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT]).unwrap();
     thread::spawn(move || {
         let signal = signals.forever().next().unwrap();
-        info!("recived signal, signal={signal}, name={name}, pid={}", process::id());
+        info!(name, pid = process::id(), signal, "recived signal");
         match signal {
             SIGTERM | SIGINT | SIGQUIT => {
-                vm::stop_vm(name, vm);
+                vm::stop_vm(&name, vm);
             }
             _ => {
                 info!("signal ignored");

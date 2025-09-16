@@ -35,7 +35,7 @@ use crate::config::vm_dir::VmDir;
 use crate::util::path::PathExtension;
 
 pub fn create_vm(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Retained<VZVirtualMachine> {
-    info!("create linux vm, name={}", dir.name());
+    info!("create linux vm");
     let vz_config = create_vm_config(dir, config, gui, mount);
     unsafe {
         vz_config

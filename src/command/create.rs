@@ -70,7 +70,7 @@ impl Create {
         let dir = vm_dir::vm_dir(&self.name);
         info!("move vm dir, from={}, to={}", temp_dir.dir.to_string_lossy(), dir.dir.to_string_lossy());
         fs::rename(&temp_dir.dir, &dir.dir).unwrap_or_else(|err| panic!("failed to rename dir, err={err}"));
-        info!("vm created, name={}, config={}", self.name, dir.config_path.to_string_lossy());
+        info!(name = self.name, "vm created, config={}", dir.config_path.to_string_lossy());
     }
 
     pub fn validate(&self) {

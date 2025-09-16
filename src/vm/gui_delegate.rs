@@ -34,7 +34,7 @@ define_class!(
         #[unsafe(method(windowWillClose:))]
         fn window_will_close(&self, _: &NSNotification) {
             let ivars = self.ivars();
-            vm::stop_vm(ivars.name.to_string(), Arc::clone(&ivars.vm));
+            vm::stop_vm(&ivars.name.to_string(), Arc::clone(&ivars.vm));
         }
     }
 );

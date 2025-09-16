@@ -40,7 +40,7 @@ use crate::config::vm_dir::VmDir;
 use crate::util::path::PathExtension;
 
 pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Retained<VZVirtualMachine> {
-    info!("create macOS vm, name={}", dir.name());
+    info!("create macOS vm");
     let vz_config = create_vm_config(dir, config, marker);
     unsafe {
         vz_config

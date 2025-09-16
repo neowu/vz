@@ -12,6 +12,7 @@ use objc2_foundation::NSError;
 use objc2_virtualization::VZVirtualMachine;
 use tracing::error;
 use tracing::info;
+use tracing::info_span;
 
 pub mod gui_delegate;
 pub mod linux;
@@ -19,9 +20,9 @@ pub mod mac_os;
 pub mod mac_os_installer;
 pub mod vm_delegate;
 
-pub fn start_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+pub fn start_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
-        info!("start vm, name={name}, pid={}", process::id());
+        info!("start vm");
         let vm = vm.get(marker);
         let block = &StackBlock::new(|err: *mut NSError| {
             if err.is_null() {
@@ -37,9 +38,11 @@ pub fn start_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>
     });
 }
 
-pub fn stop_vm(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+pub fn stop_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     run_on_main(|marker| {
-        info!("stop vm, name={name}, pid={}", process::id());
+        let span = info_span!("stop_vm", name, pid = process::id());
+        let _enter = span.enter();
+        info!("stop vm");
         if request_stop_vm(vm.get(marker)) {
             let timeout = DispatchTime::try_from(Duration::from_secs(15)).unwrap();
             let result = DispatchQueue::main().after(timeout, || force_stop_vm(vm));
