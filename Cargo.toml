@@ -1,6 +1,6 @@
 [package]
 name = "vz"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 
 [dependencies]
@@ -10,11 +10,11 @@ clap = { version = "4", features = ["derive"] }
 clap_complete = "4"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
-objc2 = { version = "0.6.0", features = ["std", "exception"] }
-objc2-foundation = "0.3.0"
-objc2-virtualization = "0.3.0"
-objc2-app-kit = "0.3.0"
-block2 = "0.6.0"
+objc2 = { version = "0", features = ["std", "exception"] }
+objc2-foundation = "0"
+objc2-virtualization = "0"
+objc2-app-kit = "0"
+block2 = "0"
 dispatch2 = "*"
 signal-hook = "0"
 uuid = { version = "*", features = ["v7"] }

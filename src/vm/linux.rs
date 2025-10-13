@@ -107,8 +107,8 @@ fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Vec<Retained<VZStorageDevice
 }
 
 fn disk(disk: &Path) -> Retained<VZStorageDeviceConfiguration> {
+    let url = NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&disk.to_string_lossy()));
     unsafe {
-        let url = NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&disk.to_string_lossy()));
         let attachment = VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
             VZDiskImageStorageDeviceAttachment::alloc(),
             &url,

@@ -26,7 +26,7 @@ impl PathExtension for Path {
 
     fn to_ns_url(&self) -> Retained<NSURL> {
         let path = NSString::from_str(&self.to_string_lossy());
-        unsafe { NSURL::initFileURLWithPath(NSURL::alloc(), &path) }
+        NSURL::initFileURLWithPath(NSURL::alloc(), &path)
     }
 }
 
