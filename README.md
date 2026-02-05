@@ -16,7 +16,7 @@ Commands:
   run         run vm
   stop        stop vm
   ipsw        get macOS restore image ipsw url
-  edit        edit vm configuration (disk size, cpu, ram)
+  edit        edit vm (cpu, ram, increase disk image size)
   install     install macOS
   completion  generate shell completion
   help        Print this message or the help of the given subcommand(s)
@@ -24,22 +24,6 @@ Commands:
 Options:
   -h, --help     Print help
   -V, --version  Print version
-```
-
-## Edit VM Configuration
-The `edit` command allows you to modify VM settings:
-```sh
-# Increase disk size to 50GB
-vz edit my-vm --disk 50
-
-# Change CPU count to 4
-vz edit my-vm --cpu 4
-
-# Change RAM to 8GB
-vz edit my-vm --ram 8
-
-# Change multiple settings at once
-vz edit my-vm --cpu 4 --ram 8 --disk 100
 ```
 
 # How to build

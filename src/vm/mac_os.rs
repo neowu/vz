@@ -64,7 +64,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
-        vz_config.setMemorySize(config.memory);
+        vz_config.setMemorySize(config.ram);
 
         vz_config.setBootLoader(Some(&VZMacOSBootLoader::new()));
         vz_config.setPlatform(&platform(dir, config));

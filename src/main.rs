@@ -7,7 +7,6 @@ use command::edit::Edit;
 use command::install::Install;
 use command::ipsw::Ipsw;
 use command::list::List;
-use command::resize::Resize;
 use command::run::Run;
 use command::stop::Stop;
 use tracing::level_filters::LevelFilter;
@@ -44,10 +43,8 @@ pub enum Command {
         long_about = "get macOS restore image ipsw url, download ipsw file manually, then use in create command with --ipsw"
     )]
     Ipsw(Ipsw),
-    #[command(about = "edit vm configuration (disk size, cpu, ram)")]
+    #[command(about = "edit vm (cpu, ram, increase disk image size)")]
     Edit(Edit),
-    #[command(about = "increase disk image size", hide = true)]
-    Resize(Resize),
     #[command(about = "install macOS")]
     Install(Install),
     #[command(about = "generate shell completion")]
@@ -75,7 +72,6 @@ fn main() {
         Command::Stop(command) => command.execute(),
         Command::Ipsw(command) => command.execute(),
         Command::Edit(command) => command.execute(),
-        Command::Resize(command) => command.execute(),
         Command::Install(command) => command.execute(),
         Command::Complete(command) => command.execute(),
         Command::Completion(command) => command.execute(),

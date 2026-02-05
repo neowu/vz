@@ -2,8 +2,8 @@ use std::io;
 
 use clap::Args;
 use clap::CommandFactory;
-use clap_complete::generate;
 use clap_complete::Shell;
+use clap_complete::generate;
 
 use crate::Cli;
 
@@ -19,7 +19,7 @@ impl Completion {
         // only support dynmaic vm name completion for fish
         // clap dynamic completion is incomplete, better have shell native file completion
         if matches!(shell, Shell::Fish) {
-            for subcommand in ["run", "stop", "edit", "resize", "install"] {
+            for subcommand in ["run", "stop", "edit", "install"] {
                 println!(
                     r#"complete -c {CARGO_PKG_NAME} -x -n "__fish_seen_subcommand_from {subcommand}" -a "({CARGO_PKG_NAME} _complete vm_name)""#
                 );

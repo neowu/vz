@@ -22,7 +22,7 @@ impl List {
 
         println!(
             "{:<16}{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}",
-            "name", "status", "os", "cpu", "memory", "disk", "ip"
+            "name", "status", "os", "cpu", "ram", "disk", "ip"
         );
         for entry in fs::read_dir(home_dir).unwrap_or_else(|err| panic!("failed to read dir, err={err}")) {
             let path = entry.unwrap_or_else(|err| panic!("failed to read dir, err={err}")).path();
@@ -34,7 +34,7 @@ impl List {
                     let config = dir.load_config();
                     let os = json::to_json_value(&config.os);
                     let cpu = config.cpu;
-                    let memory = format!("{:.2}G", config.memory as f32 / (1024.0 * 1024.0 * 1024.0));
+                    let ram = format!("{:.2}G", config.ram as f32 / (1024 * 1024 * 1024) as f32);
                     let metadata = dir.disk_path.metadata().unwrap_or_else(|err| panic!("failed to get metadata, err={err}"));
                     let disk = format!(
                         "{:0.2}G/{:.2}G",
@@ -43,7 +43,7 @@ impl List {
                     );
                     let ip = ip_addrs.get(&config.mac_address).map(String::as_str).unwrap_or("-");
                     let status = if dir.pid().is_some() { "running" } else { "stopped" };
-                    println!("{:<16}{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}", name, status, os, cpu, memory, disk, ip)
+                    println!("{:<16}{:<16}{:<8}{:<8}{:<8}{:<16}{:<16}", name, status, os, cpu, ram, disk, ip)
                 }
             }
         }

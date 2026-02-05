@@ -49,7 +49,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&Pa
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
-        vz_config.setMemorySize(config.memory);
+        vz_config.setMemorySize(config.ram);
 
         vz_config.setBootLoader(Option::Some(&boot_loader(dir)));
         vz_config.setPlatform(&VZGenericPlatformConfiguration::new());

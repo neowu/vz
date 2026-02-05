@@ -49,17 +49,19 @@ impl Edit {
         // Handle CPU/RAM changes
         if self.cpu.is_some() || self.ram.is_some() {
             let mut config = dir.load_config();
-            
+
             if let Some(cpu) = self.cpu {
-                info!("change cpu count, current={}, new={}", config.cpu, cpu);
+                info!("change cpu count, from={}, to={}", config.cpu, cpu);
                 config.cpu = cpu;
             }
-            
+
             if let Some(ram) = self.ram {
-                info!("change ram size, current={}G, new={}G", config.memory / 1_000_000_000, ram);
-                config.memory = ram * 1_000_000_000;
+                info!("change ram size, from={}G, to={}G", config.ram / 1024 * 1024 * 1024, ram);
+                {
+                    config.ram = ram * 1024 * 1024 * 1024;
+                };
             }
-            
+
             dir.save_config(&config);
         }
     }

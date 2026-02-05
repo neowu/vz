@@ -32,7 +32,7 @@ pub enum Os {
 pub struct VmConfig {
     pub os: Os,
     pub cpu: usize,
-    pub memory: u64,
+    pub ram: u64,
     #[serde(rename = "macAddress")]
     pub mac_address: String,
     pub sharing: HashMap<String, String>,
