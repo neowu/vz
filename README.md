@@ -16,7 +16,7 @@ Commands:
   run         run vm
   stop        stop vm
   ipsw        get macOS restore image ipsw url
-  resize      increase disk image size
+  edit        edit vm configuration (disk size, cpu, ram)
   install     install macOS
   completion  generate shell completion
   help        Print this message or the help of the given subcommand(s)

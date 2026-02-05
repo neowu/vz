@@ -1,6 +1,7 @@
 pub mod complete;
 pub mod completion;
 pub mod create;
+pub mod edit;
 pub mod install;
 pub mod ipsw;
 pub mod list;

@@ -3,6 +3,7 @@ use clap::Subcommand;
 use command::complete::Complete;
 use command::completion::Completion;
 use command::create::Create;
+use command::edit::Edit;
 use command::install::Install;
 use command::ipsw::Ipsw;
 use command::list::List;
@@ -43,7 +44,9 @@ pub enum Command {
         long_about = "get macOS restore image ipsw url, download ipsw file manually, then use in create command with --ipsw"
     )]
     Ipsw(Ipsw),
-    #[command(about = "increase disk image size")]
+    #[command(about = "edit vm configuration (disk size, cpu, ram)")]
+    Edit(Edit),
+    #[command(about = "increase disk image size", hide = true)]
     Resize(Resize),
     #[command(about = "install macOS")]
     Install(Install),
@@ -71,6 +74,7 @@ fn main() {
         Command::Run(command) => command.execute(),
         Command::Stop(command) => command.execute(),
         Command::Ipsw(command) => command.execute(),
+        Command::Edit(command) => command.execute(),
         Command::Resize(command) => command.execute(),
         Command::Install(command) => command.execute(),
         Command::Complete(command) => command.execute(),
