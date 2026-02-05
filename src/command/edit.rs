@@ -26,6 +26,10 @@ impl Edit {
             panic!("vm not initialized, name={name}");
         }
 
+        if dir.pid().is_some() {
+            panic!("vm is running, name={name}");
+        }
+
         // Check if at least one argument was provided
         if self.disk.is_none() && self.cpu.is_none() && self.ram.is_none() {
             panic!("at least one of --disk, --cpu, or --ram must be specified");
@@ -39,7 +43,7 @@ impl Edit {
                 .unwrap_or_else(|err| panic!("failed to get metadata, err={err}"))
                 .len();
             if size >= disk * 1_000_000_000 {
-                panic!("disk size must be larger than current, current={size}");
+                panic!("disk size must be larger than current, current={size}G");
             }
 
             info!("increase disk size, file={}, size={}G", dir.disk_path.to_string_lossy(), disk);
@@ -51,15 +55,13 @@ impl Edit {
             let mut config = dir.load_config();
 
             if let Some(cpu) = self.cpu {
-                info!("change cpu count, from={}, to={}", config.cpu, cpu);
+                info!("change cpu count, from={}, to={cpu}", config.cpu);
                 config.cpu = cpu;
             }
 
             if let Some(ram) = self.ram {
-                info!("change ram size, from={}G, to={}G", config.ram / 1024 * 1024 * 1024, ram);
-                {
-                    config.ram = ram * 1024 * 1024 * 1024;
-                };
+                info!("change ram size, from={:.2}G, to={ram}G", config.ram as f32 / (1024 * 1024 * 1024) as f32);
+                config.ram = ram * 1024 * 1024 * 1024;
             }
 
             dir.save_config(&config);
