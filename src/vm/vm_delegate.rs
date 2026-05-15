@@ -1,6 +1,6 @@
 use std::process;
 
-use objc2::AllocAnyThread;
+use objc2::AllocAnyThread as _;
 use objc2::define_class;
 use objc2::msg_send;
 use objc2::rc::Retained;

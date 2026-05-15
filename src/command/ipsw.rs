@@ -9,20 +9,17 @@ use objc2_virtualization::VZMacOSRestoreImage;
 pub struct Ipsw;
 
 impl Ipsw {
-    pub fn execute(&self) {
+    pub fn execute() {
         let (tx, rx) = channel();
         let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, err: *mut NSError| {
-            if !err.is_null() {
-                panic!("failed to fetch macos image, err={}", unsafe { (*err).localizedDescription() });
-            } else {
-                let url = unsafe { (*image).URL().absoluteString().unwrap() };
-                tx.send(url).unwrap();
-            }
+            assert!(err.is_null(), "failed to fetch macos image, err={}", unsafe { (*err).localizedDescription() });
+            let url = unsafe { (*image).URL().absoluteString().unwrap() };
+            tx.send(url).unwrap();
         });
         unsafe {
             VZMacOSRestoreImage::fetchLatestSupportedWithCompletionHandler(&block);
         };
         let url = rx.recv().unwrap();
-        println!("{}", url);
+        println!("{url}");
     }
 }

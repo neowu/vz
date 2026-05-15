@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dispatch2::MainThreadBound;
-use objc2::DeclaredClass;
+use objc2::DeclaredClass as _;
 use objc2::MainThreadOnly;
 use objc2::define_class;
 use objc2::msg_send;
@@ -34,18 +34,19 @@ define_class!(
         #[unsafe(method(windowWillClose:))]
         fn window_will_close(&self, _: &NSNotification) {
             let ivars = self.ivars();
-            vm::stop_vm(&ivars.name.to_string(), Arc::clone(&ivars.vm));
+            vm::stop_vm(&ivars.name.to_string(), &ivars.vm);
         }
     }
 );
 
 impl GuiDelegate {
-    pub fn new(marker: MainThreadMarker, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>, name: &str) -> Retained<Self> {
+    pub fn new(
+        marker: MainThreadMarker,
+        vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>,
+        name: &str,
+    ) -> Retained<Self> {
         let this = marker.alloc();
-        let this = this.set_ivars(Ivars {
-            vm,
-            name: NSString::from_str(name),
-        });
+        let this = this.set_ivars(Ivars { vm, name: NSString::from_str(name) });
         unsafe { msg_send![super(this), init] }
     }
 }

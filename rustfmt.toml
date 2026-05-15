@@ -1,4 +1,5 @@
-max_width = 150
+max_width = 120
+use_small_heuristics = "Max"
 
 unstable_features = true
 imports_granularity = "Item"

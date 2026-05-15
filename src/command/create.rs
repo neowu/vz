@@ -8,7 +8,7 @@ use std::sync::mpsc::channel;
 use block2::StackBlock;
 use clap::Args;
 use clap::ValueHint;
-use objc2::AllocAnyThread;
+use objc2::AllocAnyThread as _;
 use objc2::rc::Retained;
 use objc2_foundation::NSDataBase64EncodingOptions;
 use objc2_foundation::NSError;
@@ -25,7 +25,7 @@ use crate::config::vm_config::Os;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir;
 use crate::config::vm_dir::VmDir;
-use crate::util::path::PathExtension;
+use crate::util::path::PathExtension as _;
 use crate::vm::mac_os;
 
 #[derive(Args)]
@@ -55,9 +55,7 @@ impl Create {
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
-        if dir.initialized() {
-            panic!("vm already exists, name={name}");
-        }
+        assert!(!dir.initialized(), "vm already exists, name={name}");
 
         let temp_dir = vm_dir::create_temp_vm_dir();
         temp_dir.resize(self.disk * 1_000_000_000);
@@ -67,23 +65,21 @@ impl Create {
             Os::MacOs => create_macos(&temp_dir, &self.ipsw.as_ref().unwrap().to_absolute_path(), self.cpu, self.ram),
         }
 
-        let dir = vm_dir::vm_dir(&self.name);
-        info!("move vm dir, from={}, to={}", temp_dir.dir.to_string_lossy(), dir.dir.to_string_lossy());
-        fs::rename(&temp_dir.dir, &dir.dir).unwrap_or_else(|err| panic!("failed to rename dir, err={err}"));
-        info!(name = self.name, "vm created, config={}", dir.config_path.to_string_lossy());
+        let vm_dir = vm_dir::vm_dir(&self.name);
+        info!("move vm dir, from={}, to={}", temp_dir.dir.to_string_lossy(), vm_dir.dir.to_string_lossy());
+        fs::rename(&temp_dir.dir, &vm_dir.dir).unwrap_or_else(|err| panic!("failed to rename dir, err={err}"));
+        info!(name = self.name, "vm created, config={}", vm_dir.config_path.to_string_lossy());
     }
 
     pub fn validate(&self) {
         if let Os::MacOs = self.os {
             match &self.ipsw {
                 Some(path) => {
-                    if !path.exists() {
-                        panic!("ipsw does not exist, path={}", path.to_string_lossy());
-                    }
+                    assert!(path.exists(), "ipsw does not exist, path={}", path.to_string_lossy());
                 }
                 None => panic!("ipsw is required for macOS vm"),
             }
-        };
+        }
     }
 }
 
@@ -116,9 +112,7 @@ fn create_macos(dir: &VmDir, ipsw: &Path, cpu: usize, ram: u64) {
     let image = load_mac_os_restore_image(ipsw);
 
     let requirements = unsafe {
-        image
-            .mostFeaturefulSupportedConfiguration()
-            .expect("restore image is not supported by current host")
+        image.mostFeaturefulSupportedConfiguration().expect("restore image is not supported by current host")
     };
 
     info!("create nvram.bin");
@@ -168,12 +162,9 @@ fn load_mac_os_restore_image(ipsw: &Path) -> Retained<VZMacOSRestoreImage> {
     let (tx, rx) = channel();
     unsafe {
         let block = StackBlock::new(move |image: *mut VZMacOSRestoreImage, err: *mut NSError| {
-            if !err.is_null() {
-                panic!("failed to load image, err={}", (*err).localizedDescription());
-            } else {
-                let image = Retained::from_raw(image).unwrap();
-                tx.send(image).unwrap();
-            }
+            assert!(err.is_null(), "failed to load image, err={}", (*err).localizedDescription());
+            let image = Retained::from_raw(image).unwrap();
+            tx.send(image).unwrap();
         });
         VZMacOSRestoreImage::loadFileURL_completionHandler(&ipsw.to_ns_url(), &block);
     };

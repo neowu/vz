@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use objc2::AllocAnyThread;
+use objc2::AllocAnyThread as _;
 use objc2::rc::Retained;
 use objc2_app_kit::NSScreen;
 use objc2_foundation::MainThreadMarker;
@@ -35,32 +35,40 @@ use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
 use tracing::info;
 
+use crate::config::vm_config;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
-use crate::util::path::PathExtension;
+use crate::util::path::PathExtension as _;
 
 pub fn create_vm(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Retained<VZVirtualMachine> {
     info!("create macOS vm");
     let vz_config = create_vm_config(dir, config, marker);
     unsafe {
-        vz_config
-            .validateWithError()
-            .unwrap_or_else(|err| panic!("virtual machine config validation error, err={}", err.localizedDescription()));
+        vz_config.validateWithError().unwrap_or_else(|err| {
+            panic!("virtual machine config validation error, err={}", err.localizedDescription())
+        });
         VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config)
     }
 }
 
 pub fn hardware_model(base64_string: &str) -> Retained<VZMacHardwareModel> {
     unsafe {
-        let data_representation =
-            NSData::initWithBase64EncodedString_options(NSData::alloc(), &NSString::from_str(base64_string), NSDataBase64DecodingOptions::empty())
-                .unwrap();
+        let data_representation = NSData::initWithBase64EncodedString_options(
+            NSData::alloc(),
+            &NSString::from_str(base64_string),
+            NSDataBase64DecodingOptions::empty(),
+        )
+        .unwrap();
 
         VZMacHardwareModel::initWithDataRepresentation(VZMacHardwareModel::alloc(), &data_representation).unwrap()
     }
 }
 
-fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) -> Retained<VZVirtualMachineConfiguration> {
+fn create_vm_config(
+    dir: &VmDir,
+    config: &VmConfig,
+    marker: MainThreadMarker,
+) -> Retained<VZVirtualMachineConfiguration> {
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
@@ -71,10 +79,13 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
 
         vz_config.setGraphicsDevices(&NSArray::from_retained_slice(&[display(1920, 1080, marker)]));
         vz_config.setAudioDevices(&NSArray::from_retained_slice(&[audio()]));
-        vz_config.setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(VZMacKeyboardConfiguration::new())]));
-        vz_config.setPointingDevices(&NSArray::from_retained_slice(&[Retained::into_super(VZMacTrackpadConfiguration::new())]));
+        vz_config
+            .setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(VZMacKeyboardConfiguration::new())]));
+        vz_config.setPointingDevices(&NSArray::from_retained_slice(&[Retained::into_super(
+            VZMacTrackpadConfiguration::new(),
+        )]));
 
-        vz_config.setNetworkDevices(&NSArray::from_retained_slice(&[config.network()]));
+        vz_config.setNetworkDevices(&NSArray::from_retained_slice(&[vm_config::network(config)]));
         vz_config.setStorageDevices(&NSArray::from_retained_slice(&[disk(&dir.disk_path)]));
 
         vz_config.setMemoryBalloonDevices(&NSArray::from_retained_slice(&[Retained::into_super(
@@ -84,7 +95,7 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, marker: MainThreadMarker) ->
             VZVirtioEntropyDeviceConfiguration::new(),
         )]));
 
-        if let Some(sharing) = config.sharing_directories() {
+        if let Some(sharing) = vm_config::sharing_directories(config) {
             vz_config.setDirectorySharingDevices(&NSArray::from_retained_slice(&[sharing]));
         }
         vz_config
@@ -116,16 +127,20 @@ fn platform(dir: &VmDir, config: &VmConfig) -> Retained<VZPlatformConfiguration>
 
 fn disk(disk: &Path) -> Retained<VZStorageDeviceConfiguration> {
     unsafe {
-        let attachment = VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
-            VZDiskImageStorageDeviceAttachment::alloc(),
-            &disk.to_ns_url(),
-            false,
-            VZDiskImageCachingMode::Automatic,
-            VZDiskImageSynchronizationMode::Fsync,
-        )
-        .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
-        let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
-        Retained::into_super(disk)
+        let attachment =
+            VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
+                VZDiskImageStorageDeviceAttachment::alloc(),
+                &disk.to_ns_url(),
+                false,
+                VZDiskImageCachingMode::Automatic,
+                VZDiskImageSynchronizationMode::Fsync,
+            )
+            .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
+        let block_device = VZVirtioBlockDeviceConfiguration::initWithAttachment(
+            VZVirtioBlockDeviceConfiguration::alloc(),
+            &attachment,
+        );
+        Retained::into_super(block_device)
     }
 }
 
@@ -146,9 +161,13 @@ fn display(width: isize, height: isize, marker: MainThreadMarker) -> Retained<VZ
 
 fn machine_identifier(base64_string: &str) -> Retained<VZMacMachineIdentifier> {
     unsafe {
-        let data_representation =
-            NSData::initWithBase64EncodedString_options(NSData::alloc(), &NSString::from_str(base64_string), NSDataBase64DecodingOptions::empty())
-                .unwrap();
-        VZMacMachineIdentifier::initWithDataRepresentation(VZMacMachineIdentifier::alloc(), &data_representation).unwrap()
+        let data_representation = NSData::initWithBase64EncodedString_options(
+            NSData::alloc(),
+            &NSString::from_str(base64_string),
+            NSDataBase64DecodingOptions::empty(),
+        )
+        .unwrap();
+        VZMacMachineIdentifier::initWithDataRepresentation(VZMacMachineIdentifier::alloc(), &data_representation)
+            .unwrap()
     }
 }

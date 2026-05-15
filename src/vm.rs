@@ -1,5 +1,4 @@
 use std::process;
-use std::sync::Arc;
 use std::time::Duration;
 
 use block2::StackBlock;
@@ -20,7 +19,7 @@ pub mod mac_os;
 pub mod mac_os_installer;
 pub mod vm_delegate;
 
-pub fn start_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+pub fn start_vm(vm: &MainThreadBound<Retained<VZVirtualMachine>>) {
     run_on_main(|marker| {
         info!("start vm");
         let vm = vm.get(marker);
@@ -38,7 +37,7 @@ pub fn start_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
     });
 }
 
-pub fn stop_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+pub fn stop_vm(name: &str, vm: &MainThreadBound<Retained<VZVirtualMachine>>) {
     run_on_main(|marker| {
         let span = info_span!("stop_vm", name, pid = process::id());
         let _enter = span.enter();
@@ -56,20 +55,18 @@ pub fn stop_vm(name: &str, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>)
 }
 
 fn request_stop_vm(vm: &Retained<VZVirtualMachine>) -> bool {
-    unsafe {
-        if vm.canRequestStop() {
-            info!("request vm to stop");
-            if let Err(err) = vm.requestStopWithError() {
-                error!("failed to request vm to stop, err={}", err.localizedDescription());
-                process::exit(1);
-            }
-            return true;
+    if unsafe { vm.canRequestStop() } {
+        info!("request vm to stop");
+        if let Err(err) = unsafe { vm.requestStopWithError() } {
+            error!("failed to request vm to stop, err={}", err.localizedDescription());
+            process::exit(1);
         }
-        false
+        return true;
     }
+    false
 }
 
-fn force_stop_vm(vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>) {
+fn force_stop_vm(vm: &MainThreadBound<Retained<VZVirtualMachine>>) {
     run_on_main(|marker| {
         info!("force to stop vm");
         let vm = vm.get(marker);

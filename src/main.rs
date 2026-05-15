@@ -10,9 +10,10 @@ use command::list::List;
 use command::run::Run;
 use command::stop::Stop;
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::Layer;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::Layer as _;
+use tracing_subscriber::fmt;
+use tracing_subscriber::layer::SubscriberExt as _;
+use tracing_subscriber::util::SubscriberInitExt as _;
 
 mod command;
 mod config;
@@ -55,25 +56,19 @@ pub enum Command {
 
 fn main() {
     tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::layer()
-                .compact()
-                .with_line_number(true)
-                .with_thread_ids(true)
-                .with_filter(LevelFilter::INFO),
-        )
+        .with(fmt::layer().compact().with_line_number(true).with_thread_ids(true).with_filter(LevelFilter::INFO))
         .init();
 
     let cli = Cli::parse();
     match cli.command {
-        Command::List(command) => command.execute(),
+        Command::List(_) => List::execute(),
         Command::Create(command) => command.execute(),
         Command::Run(command) => command.execute(),
         Command::Stop(command) => command.execute(),
-        Command::Ipsw(command) => command.execute(),
+        Command::Ipsw(_) => Ipsw::execute(),
         Command::Edit(command) => command.execute(),
         Command::Install(command) => command.execute(),
         Command::Complete(command) => command.execute(),
-        Command::Completion(command) => command.execute(),
+        Command::Completion(_) => Completion::execute(),
     }
 }

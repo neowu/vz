@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::path::PathBuf;
 
-use objc2::AllocAnyThread;
+use objc2::AllocAnyThread as _;
 use objc2::rc::Retained;
 use objc2_foundation::NSArray;
 use objc2_foundation::NSString;
@@ -30,22 +30,28 @@ use objc2_virtualization::VZVirtualMachine;
 use objc2_virtualization::VZVirtualMachineConfiguration;
 use tracing::info;
 
+use crate::config::vm_config;
 use crate::config::vm_config::VmConfig;
 use crate::config::vm_dir::VmDir;
-use crate::util::path::PathExtension;
+use crate::util::path::PathExtension as _;
 
 pub fn create_vm(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Retained<VZVirtualMachine> {
     info!("create linux vm");
     let vz_config = create_vm_config(dir, config, gui, mount);
     unsafe {
-        vz_config
-            .validateWithError()
-            .unwrap_or_else(|err| panic!("virtual machine config validation error, err={}", err.localizedDescription()));
+        vz_config.validateWithError().unwrap_or_else(|err| {
+            panic!("virtual machine config validation error, err={}", err.localizedDescription())
+        });
         VZVirtualMachine::initWithConfiguration(VZVirtualMachine::alloc(), &vz_config)
     }
 }
 
-fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&PathBuf>) -> Retained<VZVirtualMachineConfiguration> {
+fn create_vm_config(
+    dir: &VmDir,
+    config: &VmConfig,
+    gui: bool,
+    mount: Option<&PathBuf>,
+) -> Retained<VZVirtualMachineConfiguration> {
     unsafe {
         let vz_config = VZVirtualMachineConfiguration::new();
         vz_config.setCPUCount(config.cpu);
@@ -56,13 +62,15 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&Pa
 
         if gui {
             vz_config.setGraphicsDevices(&NSArray::from_retained_slice(&[display(1024, 768)]));
-            vz_config.setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(VZUSBKeyboardConfiguration::new())]));
+            vz_config.setKeyboards(&NSArray::from_retained_slice(&[Retained::into_super(
+                VZUSBKeyboardConfiguration::new(),
+            )]));
             vz_config.setPointingDevices(&NSArray::from_retained_slice(&[Retained::into_super(
                 VZUSBScreenCoordinatePointingDeviceConfiguration::new(),
             )]));
         }
 
-        vz_config.setNetworkDevices(&NSArray::from_retained_slice(&[config.network()]));
+        vz_config.setNetworkDevices(&NSArray::from_retained_slice(&[vm_config::network(config)]));
         vz_config.setStorageDevices(&NSArray::from_retained_slice(&storage(dir, mount)));
 
         vz_config.setMemoryBalloonDevices(&NSArray::from_retained_slice(&[Retained::into_super(
@@ -73,11 +81,14 @@ fn create_vm_config(dir: &VmDir, config: &VmConfig, gui: bool, mount: Option<&Pa
         )]));
 
         let mut sharings: Vec<Retained<VZDirectorySharingDeviceConfiguration>> = vec![];
-        if let Some(sharing) = config.sharing_directories() {
+        if let Some(sharing) = vm_config::sharing_directories(config) {
             sharings.push(sharing);
         }
         if let Some(true) = config.rosetta {
-            let device = VZVirtioFileSystemDeviceConfiguration::initWithTag(VZVirtioFileSystemDeviceConfiguration::alloc(), ns_string!("rosetta"));
+            let device = VZVirtioFileSystemDeviceConfiguration::initWithTag(
+                VZVirtioFileSystemDeviceConfiguration::alloc(),
+                ns_string!("rosetta"),
+            );
             device.setShare(Some(&Retained::into_super(VZLinuxRosettaDirectoryShare::new())));
             sharings.push(Retained::into_super(device));
         }
@@ -100,8 +111,8 @@ fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Vec<Retained<VZStorageDevice
     let disk = disk(&dir.disk_path);
     let mut storage = vec![disk];
     if let Option::Some(mount) = mount {
-        let disk = mount_disk(mount);
-        storage.push(disk)
+        let mounted_disk = mount_disk(mount);
+        storage.push(mounted_disk);
     }
     storage
 }
@@ -109,26 +120,36 @@ fn storage(dir: &VmDir, mount: Option<&PathBuf>) -> Vec<Retained<VZStorageDevice
 fn disk(disk: &Path) -> Retained<VZStorageDeviceConfiguration> {
     let url = NSURL::initFileURLWithPath(NSURL::alloc(), &NSString::from_str(&disk.to_string_lossy()));
     unsafe {
-        let attachment = VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
-            VZDiskImageStorageDeviceAttachment::alloc(),
-            &url,
-            false,
-            VZDiskImageCachingMode::Automatic,
-            VZDiskImageSynchronizationMode::Fsync,
-        )
-        .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
-        let disk = VZVirtioBlockDeviceConfiguration::initWithAttachment(VZVirtioBlockDeviceConfiguration::alloc(), &attachment);
-        Retained::into_super(disk)
+        let attachment =
+            VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_cachingMode_synchronizationMode_error(
+                VZDiskImageStorageDeviceAttachment::alloc(),
+                &url,
+                false,
+                VZDiskImageCachingMode::Automatic,
+                VZDiskImageSynchronizationMode::Fsync,
+            )
+            .unwrap_or_else(|err| panic!("failed to create disk, err={}", err.localizedDescription()));
+        let block_device = VZVirtioBlockDeviceConfiguration::initWithAttachment(
+            VZVirtioBlockDeviceConfiguration::alloc(),
+            &attachment,
+        );
+        Retained::into_super(block_device)
     }
 }
 
 fn mount_disk(mount: &Path) -> Retained<VZStorageDeviceConfiguration> {
     unsafe {
-        let attachment =
-            VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_error(VZDiskImageStorageDeviceAttachment::alloc(), &mount.to_ns_url(), true)
-                .unwrap_or_else(|err| panic!("failed to create mount disk, err={}", err.localizedDescription()));
+        let attachment = VZDiskImageStorageDeviceAttachment::initWithURL_readOnly_error(
+            VZDiskImageStorageDeviceAttachment::alloc(),
+            &mount.to_ns_url(),
+            true,
+        )
+        .unwrap_or_else(|err| panic!("failed to create mount disk, err={}", err.localizedDescription()));
 
-        let disk = VZUSBMassStorageDeviceConfiguration::initWithAttachment(VZUSBMassStorageDeviceConfiguration::alloc(), &attachment);
+        let disk = VZUSBMassStorageDeviceConfiguration::initWithAttachment(
+            VZUSBMassStorageDeviceConfiguration::alloc(),
+            &attachment,
+        );
         Retained::into_super(disk)
     }
 }
@@ -136,8 +157,11 @@ fn mount_disk(mount: &Path) -> Retained<VZStorageDeviceConfiguration> {
 fn display(width: isize, height: isize) -> Retained<VZGraphicsDeviceConfiguration> {
     unsafe {
         let display = VZVirtioGraphicsDeviceConfiguration::new();
-        let scanout =
-            VZVirtioGraphicsScanoutConfiguration::initWithWidthInPixels_heightInPixels(VZVirtioGraphicsScanoutConfiguration::alloc(), width, height);
+        let scanout = VZVirtioGraphicsScanoutConfiguration::initWithWidthInPixels_heightInPixels(
+            VZVirtioGraphicsScanoutConfiguration::alloc(),
+            width,
+            height,
+        );
         let scanouts = &NSArray::from_retained_slice(&[scanout]);
         display.setScanouts(scanouts);
         Retained::into_super(display)

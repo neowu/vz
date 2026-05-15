@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
-use crate::util::path::PathExtension;
+use crate::util::path::PathExtension as _;
 use crate::vm::mac_os;
 use crate::vm::mac_os_installer;
 
@@ -26,24 +26,18 @@ impl Install {
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
-        if !dir.initialized() {
-            panic!("vm not initialized, name={name}");
-        }
+        assert!(dir.initialized(), "vm not initialized, name={name}");
         let config = dir.load_config();
-        if !matches!(config.os, Os::MacOs) {
-            panic!("install requires macOS guest");
-        }
+        assert!(matches!(config.os, Os::MacOs), "install requires macOS guest");
         let _lock = dir.lock();
 
-        info!("instal macOS");
+        info!("install macOS");
         let marker = MainThreadMarker::new().unwrap();
         let vm = mac_os::create_vm(&dir, &config, marker);
-        mac_os_installer::install(vm, &self.ipsw.to_absolute_path(), marker);
+        mac_os_installer::install(&vm, &self.ipsw.to_absolute_path(), marker);
     }
 
     fn validate(&self) {
-        if !self.ipsw.exists() {
-            panic!("ipsw does not exist, path={}", self.ipsw.to_string_lossy());
-        }
+        assert!(self.ipsw.exists(), "ipsw does not exist, path={}", self.ipsw.to_string_lossy());
     }
 }

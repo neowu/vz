@@ -40,18 +40,18 @@ impl FileLock {
             l_type: libc::F_RDLCK,
             l_whence: libc::SEEK_SET as libc::c_short,
         };
-        unsafe { libc::fcntl(self.fd, libc::F_GETLK, &mut lock) };
-        if lock.l_type == libc::F_WRLCK {
-            Some(lock.l_pid)
-        } else {
-            None
+        unsafe {
+            libc::fcntl(self.fd, libc::F_GETLK, &mut lock);
         }
+        (lock.l_type == libc::F_WRLCK).then_some(lock.l_pid)
     }
 }
 
 impl Drop for FileLock {
     fn drop(&mut self) {
         // close fd will release all locks
-        unsafe { libc::close(self.fd) };
+        unsafe {
+            libc::close(self.fd);
+        }
     }
 }

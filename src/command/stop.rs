@@ -19,9 +19,7 @@ impl Stop {
     pub fn execute(&self) {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
-        if !dir.initialized() {
-            panic!("vm not initialized, name={name}");
-        }
+        assert!(dir.initialized(), "vm not initialized, name={name}");
 
         let pid = dir.pid().unwrap_or_else(|| panic!("vm not running, name={name}"));
         info!("stop vm, name={name}, pid={pid}");
@@ -29,7 +27,7 @@ impl Stop {
             libc::kill(pid, libc::SIGINT);
         }
 
-        let success = wait_until_stopped(dir);
+        let success = wait_until_stopped(&dir);
         if success {
             info!("vm stopped");
             process::exit(0);
@@ -40,7 +38,7 @@ impl Stop {
     }
 }
 
-fn wait_until_stopped(dir: VmDir) -> bool {
+fn wait_until_stopped(dir: &VmDir) -> bool {
     let mut attempts = 0;
     while attempts < 20 {
         sleep(Duration::from_secs(1));

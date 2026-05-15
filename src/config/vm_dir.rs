@@ -8,7 +8,7 @@ use uuid::Uuid;
 use super::vm_config::VmConfig;
 use crate::util::file_lock::FileLock;
 use crate::util::json;
-use crate::util::path::PathExtension;
+use crate::util::path::PathExtension as _;
 
 pub struct VmDir {
     pub dir: PathBuf,
@@ -22,12 +22,7 @@ impl VmDir {
         let nvram_path = dir.as_path().join("nvram.bin");
         let disk_path = dir.as_path().join("disk.img");
         let config_path = dir.as_path().join("config.json");
-        VmDir {
-            dir,
-            nvram_path,
-            disk_path,
-            config_path,
-        }
+        VmDir { dir, nvram_path, disk_path, config_path }
     }
 
     pub fn name(&self) -> String {
@@ -39,13 +34,14 @@ impl VmDir {
     }
 
     pub fn load_config(&self) -> VmConfig {
-        let json = fs::read_to_string(&self.config_path).unwrap_or_else(|err| panic!("failed to load config, err={err}"));
+        let json =
+            fs::read_to_string(&self.config_path).unwrap_or_else(|err| panic!("failed to load config, err={err}"));
         json::from_json(&json)
     }
 
     pub fn save_config(&self, config: &VmConfig) {
         let json = json::to_json_pretty(&config);
-        fs::write(&self.config_path, json).unwrap_or_else(|err| panic!("failed to save config, err={err}"))
+        fs::write(&self.config_path, json).unwrap_or_else(|err| panic!("failed to save config, err={err}"));
     }
 
     pub fn resize(&self, size: u64) {
@@ -54,16 +50,12 @@ impl VmDir {
             .append(true)
             .open(&self.disk_path)
             .unwrap_or_else(|err| panic!("failed to open file, err={err}"));
-        file.set_len(size).unwrap_or_else(|err| panic!("failed to resize file, err={err}"))
+        file.set_len(size).unwrap_or_else(|err| panic!("failed to resize file, err={err}"));
     }
 
     pub fn lock(&self) -> FileLock {
         let lock = FileLock::new(&self.config_path);
-        if lock.lock() {
-            lock
-        } else {
-            panic!("vm is already running, name={}", self.name())
-        }
+        if lock.lock() { lock } else { panic!("vm is already running, name={}", self.name()) }
     }
 
     pub fn pid(&self) -> Option<pid_t> {
@@ -82,12 +74,7 @@ pub fn vm_dir(name: &str) -> VmDir {
 
 pub fn vm_dirs() -> Vec<VmDir> {
     if let Ok(read_dir) = home_dir().read_dir() {
-        read_dir
-            .into_iter()
-            .flatten()
-            .map(|dir| VmDir::new(dir.path()))
-            .filter(|dir| dir.initialized())
-            .collect()
+        read_dir.into_iter().flatten().map(|dir| VmDir::new(dir.path())).filter(VmDir::initialized).collect()
     } else {
         vec![]
     }

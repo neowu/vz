@@ -11,7 +11,7 @@ pub struct Complete {
 impl Complete {
     pub fn execute(&self) {
         if self.name == "vm_name" {
-            for vm_dir in vm_dir::vm_dirs().into_iter() {
+            for vm_dir in vm_dir::vm_dirs() {
                 println!("{}\tvm", vm_dir.name());
             }
         }

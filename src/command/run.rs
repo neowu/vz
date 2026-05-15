@@ -41,7 +41,7 @@ use tracing::info_span;
 
 use crate::config::vm_config::Os;
 use crate::config::vm_dir;
-use crate::util::path::PathExtension;
+use crate::util::path::PathExtension as _;
 use crate::vm;
 use crate::vm::gui_delegate::GuiDelegate;
 use crate::vm::linux;
@@ -66,9 +66,7 @@ impl Run {
 
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
-        if !dir.initialized() {
-            panic!("vm not initialized, name={name}");
-        }
+        assert!(dir.initialized(), "vm not initialized, name={name}");
 
         if self.detached {
             return run_in_background(name);
@@ -88,16 +86,17 @@ impl Run {
             Os::Linux => linux::create_vm(&dir, &config, self.gui, self.mount.as_ref()),
             Os::MacOs => mac_os::create_vm(&dir, &config, marker),
         };
-        let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> = ProtocolObject::from_retained(VmDelegate::new());
+        let proto: Retained<ProtocolObject<dyn VZVirtualMachineDelegate>> =
+            ProtocolObject::from_retained(VmDelegate::new());
         unsafe {
             vm.setDelegate(Some(&proto));
         }
         let vm = Arc::new(MainThreadBound::new(vm, marker));
-        vm::start_vm(Arc::clone(&vm));
+        vm::start_vm(&vm);
 
         drop(enter);
 
-        handle_signal(name.to_string(), Arc::clone(&vm));
+        handle_signal(name.to_owned(), Arc::clone(&vm));
 
         if self.gui {
             let auto_reconfig_display = matches!(&config.os, Os::MacOs);
@@ -108,15 +107,11 @@ impl Run {
     }
 
     fn validate(&self) {
-        if let Some(path) = &self.mount
-            && !path.exists()
-        {
-            panic!("mount does not exist, path={}", path.to_string_lossy());
+        if let Some(path) = &self.mount {
+            assert!(path.exists(), "mount does not exist, path={}", path.to_string_lossy());
         }
 
-        if self.detached && (self.gui || self.mount.is_some()) {
-            panic!("-d must not be used with --gui and --mount");
-        }
+        assert!(!(self.detached && (self.gui || self.mount.is_some())), "-d must not be used with --gui and --mount");
     }
 }
 
@@ -130,7 +125,8 @@ fn run_in_background(name: &str) {
         panic!("log file is not writable, path={}", log_path.to_string_lossy());
     }
 
-    let mut command = Command::new(current_exe().unwrap_or_else(|err| panic!("failed to get current command path, err={err}")));
+    let mut command =
+        Command::new(current_exe().unwrap_or_else(|err| panic!("failed to get current command path, err={err}")));
     command.args(["run", name]);
     command.stdout(log_file_io(&log_path));
     command.stderr(log_file_io(&log_path));
@@ -152,10 +148,10 @@ fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine
     let mut signals = Signals::new([SIGTERM, SIGINT, SIGQUIT]).unwrap();
     thread::spawn(move || {
         let signal = signals.forever().next().unwrap();
-        info!(name, pid = process::id(), signal, "recived signal");
+        info!(name, pid = process::id(), signal, "received signal");
         match signal {
             SIGTERM | SIGINT | SIGQUIT => {
-                vm::stop_vm(&name, vm);
+                vm::stop_vm(&name, &vm);
             }
             _ => {
                 info!("signal ignored");
@@ -164,17 +160,19 @@ fn handle_signal(name: String, vm: Arc<MainThreadBound<Retained<VZVirtualMachine
     });
 }
 
-fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>, auto_reconfig_display: bool) {
+fn run_gui(
+    name: &str,
+    marker: MainThreadMarker,
+    vm: Arc<MainThreadBound<Retained<VZVirtualMachine>>>,
+    auto_reconfig_display: bool,
+) {
     let app = NSApplication::sharedApplication(marker);
     app.setActivationPolicy(NSApplicationActivationPolicy::Regular);
 
     let window = unsafe {
         NSWindow::initWithContentRect_styleMask_backing_defer_screen(
             marker.alloc(),
-            NSRect {
-                origin: NSPoint::new(0.0, 0.0),
-                size: NSSize::new(1024.0, 768.0),
-            },
+            NSRect { origin: NSPoint::new(0.0, 0.0), size: NSSize::new(1024.0, 768.0) },
             NSWindowStyleMask::Titled | NSWindowStyleMask::Resizable | NSWindowStyleMask::Closable,
             NSBackingStoreType::Buffered,
             false,
@@ -186,7 +184,13 @@ fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retaine
     let menu = NSMenu::new(marker);
     let menu_item = NSMenuItem::new(marker);
     let sub_menu = NSMenu::new(marker);
-    unsafe { sub_menu.addItemWithTitle_action_keyEquivalent(&NSString::from_str(&format!("Stop {name}...")), Some(sel!(close)), ns_string!("q")) };
+    unsafe {
+        sub_menu.addItemWithTitle_action_keyEquivalent(
+            &NSString::from_str(&format!("Stop {name}...")),
+            Some(sel!(close)),
+            ns_string!("q"),
+        );
+    }
     menu_item.setSubmenu(Some(&sub_menu));
     menu.addItem(&menu_item);
     app.setMainMenu(Some(&menu));
@@ -196,11 +200,14 @@ fn run_gui(name: &str, marker: MainThreadMarker, vm: Arc<MainThreadBound<Retaine
         machine_view.setCapturesSystemKeys(true);
         machine_view.setAutomaticallyReconfiguresDisplay(auto_reconfig_display);
         machine_view.setVirtualMachine(Some(vm.get(marker)));
-        machine_view.setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable);
+        machine_view.setAutoresizingMask(
+            NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
+        );
         window.contentView().unwrap().addSubview(&machine_view);
     }
 
-    let proto: Retained<ProtocolObject<dyn NSWindowDelegate>> = ProtocolObject::from_retained(GuiDelegate::new(marker, vm, name));
+    let proto: Retained<ProtocolObject<dyn NSWindowDelegate>> =
+        ProtocolObject::from_retained(GuiDelegate::new(marker, vm, name));
     window.setDelegate(Some(&proto));
 
     window.makeKeyAndOrderFront(Option::None);

@@ -22,29 +22,20 @@ impl Edit {
     pub fn execute(&self) {
         let name = &self.name;
         let dir = vm_dir::vm_dir(name);
-        if !dir.initialized() {
-            panic!("vm not initialized, name={name}");
-        }
+        assert!(dir.initialized(), "vm not initialized, name={name}");
 
-        if dir.pid().is_some() {
-            panic!("vm is running, name={name}");
-        }
+        assert!(dir.pid().is_none(), "vm is running, name={name}");
 
         // Check if at least one argument was provided
-        if self.disk.is_none() && self.cpu.is_none() && self.ram.is_none() {
-            panic!("at least one of --disk, --cpu, or --ram must be specified");
-        }
+        assert!(
+            !(self.disk.is_none() && self.cpu.is_none() && self.ram.is_none()),
+            "at least one of --disk, --cpu, or --ram must be specified"
+        );
 
         // Handle disk resize
         if let Some(disk) = self.disk {
-            let size = dir
-                .disk_path
-                .metadata()
-                .unwrap_or_else(|err| panic!("failed to get metadata, err={err}"))
-                .len();
-            if size >= disk * 1_000_000_000 {
-                panic!("disk size must be larger than current, current={size}G");
-            }
+            let size = dir.disk_path.metadata().unwrap_or_else(|err| panic!("failed to get metadata, err={err}")).len();
+            assert!(size < disk * 1_000_000_000, "disk size must be larger than current, current={size}G");
 
             info!("increase disk size, file={}, size={}G", dir.disk_path.to_string_lossy(), disk);
             dir.resize(disk * 1_000_000_000);
